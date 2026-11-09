@@ -1,0 +1,737 @@
+# Face image dataset lineage map: where each dataset's images came from.
+# Build:  python build.py data/face-image-datasets.yaml face-dataset-lineage.html
+#
+# Uses the extended schema: no traced `datasets` column; every box is a dataset under `nodes`
+# (column + y in px), coloured by image origin (kinds), with a status, attrs shown in the
+# panel/table (node_fields), several refs, family bands (lanes) and typed links (link_types).
+
+page_title: Face Dataset Lineage Map
+title: Shared provenance of face datasets
+intro: >-
+  Each line shows where a dataset's <b>images</b> came from. 21 of the 34 entries take their images from another dataset, and LFW alone has <b>20 known derivatives</b>, shown here as 5 individual datasets and 2 groups. <b>Six datasets have been withdrawn (dashed borders), and derivatives of four of those are still distributed.</b> RFW, BFW and LAOFIW take only their names from LFW: none of them contains LFW images. Hover or tap a dataset to trace its lineage.
+svg_title: Lineage graph of face datasets grouped by upstream source
+panel_hint: >-
+  Select a dataset to see its terms, its parents and children, and a link to its primary source.<br><br>Datasets shown with no lines have no upstream source shared with any other dataset here.
+footer: >-
+  Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the Face Dataset Provenance Knowledge Base in Notion. Status of VGGFace is assumed, not verified.
+node_table_title: Table view (34 entries plus Flickr)
+layout:
+  node_width: 168
+  node_height: 46
+  first_x: 40
+  first_gap: 210
+  col_gap: 220
+  min_curve: 0
+  width: 1100
+  height: 1224
+columns:
+- ''
+- ''
+- ''
+- ''
+- ''
+lanes:
+- label: Flickr / YFCC100M family
+  y: 15
+  h: 200
+  label_y: 33
+- label: MS-Celeb-1M family
+  y: 235
+  h: 135
+  label_y: 302
+- label: VGG / CASIA family
+  y: 385
+  h: 180
+  label_y: 475
+- label: News photos & LFW derivatives
+  y: 580
+  h: 385
+  label_y: 600
+- label: Celebrity profiles & mugshots
+  y: 980
+  h: 135
+  label_y: 1052
+- label: No shared upstream
+  y: 1132
+  h: 82
+  label_y: 1148
+labels: always
+panel: lineage
+kinds:
+  flickr:
+    label: Flickr (Creative Commons)
+    legend: Flickr (Creative Commons)
+    color: series-1
+  web:
+    label: Web search / celebrity-site scrape
+    legend: Web search / celebrity-site scrape
+    color: series-2
+  other:
+    label: Other origin
+    legend: Other origin (news, mugshots, official portraits, consented)
+    color: series-3
+  text:
+    label: Text only
+    legend: Text only
+    color: neutral
+statuses:
+  Platform: {}
+  Available: {}
+  On request: {}
+  Parent withdrawn:
+    badge: ⚠
+  Withdrawn:
+    badge: ⊘
+    dashed: true
+    legend: Withdrawn
+link_types:
+  from:
+    legend: Images taken from
+  partly:
+    legend: Partly taken from
+    dashed: true
+    tag: partly
+    label: partly
+node_fields:
+- key: terms
+  label: Terms and image rights
+- key: commercial
+  label: Commercial use
+- key: consent
+  label: Consent
+node_table:
+- col: name
+  label: Dataset
+- col: kind
+  label: Image origin
+- col: from
+  label: Built from
+- col: status
+  label: Status
+- col: field
+  key: commercial
+  label: Commercial use
+- col: field
+  key: consent
+  label: Consent
+- col: links
+  label: Links
+nodes:
+- id: flickr
+  name: Flickr.com
+  subtitle: Source platform
+  full: Photo-sharing platform
+  column: 0
+  y: 100
+  kind: flickr
+  status: Platform
+  attrs:
+    terms: Per-photo licence chosen by uploader; ~2.3% of Flickr is CC-licensed.
+    commercial: Varies per photo
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://www.flickr.com/creativecommons
+- id: yfcc
+  name: YFCC100M
+  subtitle: Available
+  full: Yahoo Flickr Creative Commons 100M
+  column: 1
+  y: 60
+  kind: flickr
+  status: Available
+  attrs:
+    terms: >-
+      URLs + licence metadata; billed as "free and legal to use". Only ~31.8% of photos allow commercial use.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: >-
+      https://code.flickr.net/2014/10/15/the-ins-and-outs-of-the-yahoo-flickr-100-million-creative-commons-dataset/
+- id: ffhq
+  name: FFHQ
+  subtitle: Available · NC
+  full: Flickr-Faces-HQ (NVIDIA)
+  column: 1
+  y: 150
+  kind: flickr
+  status: Available
+  attrs:
+    terms: >-
+      CC BY-NC-SA 4.0 compilation; per-image CC BY / BY-NC / CC0 / PD recorded in metadata; no NoDerivs images.
+    commercial: Non-commercial only
+    consent: Opt-out only
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://github.com/NVlabs/ffhq-dataset
+- id: mega
+  name: MegaFace
+  subtitle: ⊘ Withdrawn · NC
+  full: MegaFace MF2 (Univ. of Washington)
+  column: 2
+  y: 30
+  kind: flickr
+  status: Withdrawn
+  attrs:
+    terms: >-
+      Non-commercial research; researcher indemnifies UW. 69% of photos bar commercial use. Decommissioned June 2020.
+    commercial: Non-commercial only
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: http://megaface.cs.washington.edu/dataset/download_training.html
+- id: fairface
+  name: FairFace
+  subtitle: Available · CC BY label
+  full: FairFace (UCLA)
+  column: 2
+  y: 95
+  kind: flickr
+  status: Available
+  attrs:
+    terms: CC BY 4.0 label. Paper says only CC BY / BY-SA Flickr images, but also some Twitter and news photos.
+    commercial: Allowed (label)
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://github.com/joojs/fairface
+- id: dif
+  name: Diversity in Faces
+  subtitle: ⊘ Withdrawn
+  full: IBM Diversity in Faces (DiF)
+  column: 2
+  y: 160
+  kind: flickr
+  status: Withdrawn
+  attrs:
+    terms: No longer downloadable. Subject of 2020 BIPA lawsuits (dismissed on jurisdiction or settled).
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: >-
+      https://www.insideprivacy.com/data-privacy/what-the-diversity-in-faces-litigation-means-for-biometric-technologies/
+- id: dive
+  name: DiveFace
+  subtitle: ⚠ Parent withdrawn · NC
+  full: DiveFace (BiDA Lab, UAM)
+  column: 3
+  y: 30
+  kind: flickr
+  status: Parent withdrawn
+  attrs:
+    terms: >-
+      Non-commercial research for any modification or redistribution. Mostly CC BY-NC-ND images. Ships only lists + a MegaFace rebuild script.
+    commercial: Non-commercial only
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://github.com/BiDAlab/DiveFace
+- id: bios
+  name: Bias in Bios
+  subtitle: Text only · bios
+  full: Common Crawl Bios (De-Arteaga et al.)
+  column: 3
+  y: 110
+  kind: text
+  status: Available
+  attrs:
+    terms: ~400K biographies scraped from Common Crawl. Terms not checked.
+    commercial: Unclear
+    consent: None
+- id: faircv
+  name: FairCVdb
+  subtitle: ⚠ Parent withdrawn · NC
+  full: FairCVdb (FairCVtest)
+  column: 4
+  y: 70
+  kind: flickr
+  status: Parent withdrawn
+  attrs:
+    terms: >-
+      Warranty disclaimer only; no rights granted. Faces from DiveFace (may be embeddings + image list, not pixels); bios from Bias in Bios.
+    commercial: Non-commercial only
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://github.com/BiDAlab/FairCVtest
+- id: msceleb
+  name: MS-Celeb-1M
+  subtitle: ⊘ Withdrawn
+  full: Microsoft Celeb 1M
+  column: 1
+  y: 275
+  kind: web
+  status: Withdrawn
+  attrs:
+    terms: ~10M search-engine images of ~100K people. Taken offline June 2019; copies persist.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://www.vice.com/en/article/microsoft-deleted-a-facial-recognition-database-but-its-not-dead/
+- id: rfw
+  name: RFW
+  subtitle: ⚠ Parent withdrawn · NC
+  full: Racial Faces in-the-Wild
+  column: 2
+  y: 250
+  kind: web
+  status: Parent withdrawn
+  attrs:
+    terms: >-
+      Non-commercial research; no reproduction or redistribution; apply from an institutional email. Copies only LFW's pair protocol.
+    commercial: Non-commercial only
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: http://whdeng.cn/RFW/testing.html
+- id: bupt
+  name: BUPT-Balanced/Global
+  subtitle: ⚠ Parent withdrawn
+  full: BUPT-Balancedface & BUPT-Globalface
+  column: 2
+  y: 310
+  kind: web
+  status: Parent withdrawn
+  attrs:
+    terms: Ethnicity-aware training sets (1.3M and 2M images). Terms not checked.
+    commercial: Unclear
+    consent: None
+- id: casia
+  name: CASIA-WebFace
+  subtitle: Available
+  full: CASIA-WebFace
+  column: 1
+  y: 395
+  kind: web
+  status: Available
+  attrs:
+    terms: Released "for training purposes only". Terms and current status not checked.
+    commercial: Unclear
+    consent: None
+- id: vggface
+  name: VGGFace
+  subtitle: ⊘ Withdrawn (assumed)
+  full: VGG Face (Oxford)
+  column: 1
+  y: 450
+  kind: web
+  status: Withdrawn
+  attrs:
+    terms: 2.6M web images of 2,622 people. Status assumed withdrawn alongside VGGFace2; not verified.
+    commercial: Unclear
+    consent: None
+- id: vgg2
+  name: VGGFace2
+  subtitle: ⊘ Withdrawn
+  full: VGGFace2 (Oxford)
+  column: 1
+  y: 505
+  kind: web
+  status: Withdrawn
+  attrs:
+    terms: 3.31M Google Image Search results of 9,131 public figures. Oxford download links removed.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://www.robots.ox.ac.uk/~vgg/data/vgg_face2/
+- id: demog
+  name: DemogPairs
+  subtitle: ⚠ Parent withdrawn
+  full: DemogPairs (Hupont & Fernández)
+  column: 2
+  y: 440
+  kind: web
+  status: Parent withdrawn
+  attrs:
+    terms: 10,800 images of 600 people in 6 balanced groups. Terms not checked.
+    commercial: Unclear
+    consent: None
+- id: bfw
+  name: BFW
+  subtitle: ⚠ Parent withdrawn · CC BY label
+  full: Balanced Faces in the Wild
+  column: 2
+  y: 505
+  kind: web
+  status: Parent withdrawn
+  attrs:
+    terms: >-
+      Listed CC BY 4.0 on IEEE DataPort, but images are VGGFace2 Google Image Search results the authors don't own.
+    commercial: Allowed (label)
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://ieee-dataport.org/documents/balanced-faces-wild
+- id: news
+  name: Names & Faces in News
+  subtitle: News photos
+  full: Yahoo! News captioned photos (Berg et al.)
+  column: 1
+  y: 750
+  kind: other
+  status: Available
+  attrs:
+    terms: ~500K captioned press photos (2003–04). Agencies keep copyright. Terms not checked.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://adam.harvey.studio/origins-and-endpoints/
+- id: lfw
+  name: LFW
+  subtitle: Available
+  full: Labeled Faces in the Wild
+  column: 2
+  y: 750
+  kind: other
+  status: Available
+  attrs:
+    terms: >-
+      No licence ever issued. A 2019 disclaimer (no legal force) warns against concluding commercial suitability.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://arxiv.org/html/2108.02922v2
+- id: lfwa
+  name: LFWA / LFWA+
+  subtitle: Adds gender & race labels
+  full: LFW Attributes (Liu et al., CUHK)
+  column: 3
+  y: 590
+  kind: other
+  status: Available
+  attrs:
+    terms: >-
+      LFW images with attribute labels, released alongside CelebA. FairFace used LFWA+ as a comparison set with gender and merged race labels. Terms not checked.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+- id: lfwplus
+  name: LFW+
+  subtitle: Age, gender, race · NC
+  full: LFW+ (Han & Jain, Michigan State)
+  column: 3
+  y: 643
+  kind: other
+  status: Available
+  attrs:
+    terms: >-
+      About 15K images (LFW plus additions) with age, gender and race labels. Adds a non-commercial clause LFW itself never had.
+    commercial: Non-commercial only
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: >-
+      https://www.researchgate.net/publication/263697688_Age_Gender_and_Race_Estimation_from_Unconstrained_Face_Images
+- id: mtfl
+  name: MTFL
+  subtitle: Landmarks + gender
+  full: Multi-Task Facial Landmark dataset
+  column: 3
+  y: 696
+  kind: other
+  status: Available
+  attrs:
+    terms: Includes original LFW images with landmarks and attribute labels. Terms not checked.
+    commercial: Unclear
+    consent: None
+- id: smfrd
+  name: SMFRD
+  subtitle: Edited faces · shared
+  full: Simulated Masked Face Recognition Dataset
+  column: 3
+  y: 749
+  kind: other
+  status: Available
+  attrs:
+    terms: >-
+      LFW faces edited with synthetic masks and redistributed publicly, with no non-commercial clause. This is the "share edited real faces" case.
+    commercial: Unclear
+    consent: None
+- id: itwe
+  name: ITWE
+  subtitle: Available · NC
+  full: ITWE (LFW derivative D36 in Peng et al.)
+  column: 3
+  y: 802
+  kind: other
+  status: Available
+  attrs:
+    terms: Includes original LFW images; carries a non-commercial clause. Purpose not verified.
+    commercial: Non-commercial only
+    consent: None
+- id: lfwvar
+  name: Aligned / 3D variants (6)
+  subtitle: Re-processed images
+  full: LFW-a, funneled, deep funneled, crop, LFW3D, Frontalized Faces in the Wild
+  column: 3
+  y: 855
+  kind: other
+  status: Available
+  attrs:
+    terms: >-
+      Six datasets that align, crop or 3D-frontalize LFW images and redistribute them. No licence at any layer.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://arxiv.org/html/2108.02922v2
+- id: lfwother
+  name: Other derivatives (9)
+  subtitle: Mostly unlicensed
+  full: BLUFR, LFW87, Extended LFW, PubFig83+LFW, five unnamed
+  column: 3
+  y: 908
+  kind: other
+  status: Available
+  attrs:
+    terms: >-
+      BLUFR is a protocol with no images. PubFig83+LFW mixes in PubFig, which is non-commercial and URL-only. Two unnamed sets add sensitive labels; one prohibits commercial use.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://arxiv.org/html/2108.02922v2
+- id: imdb
+  name: IMDB-WIKI
+  subtitle: Available
+  full: IMDB-WIKI (ETH Zurich)
+  column: 1
+  y: 995
+  kind: web
+  status: Available
+  attrs:
+    terms: ~523K images crawled from IMDb and Wikipedia profiles. No licence on download page.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/
+- id: cimdb
+  name: Cleaned IMDB
+  subtitle: Available
+  full: Cleaned IMDB subset (Alvi et al.)
+  column: 2
+  y: 995
+  kind: web
+  status: Available
+  attrs:
+    terms: Lists only (60K age, 80K gender). Requires IMDB-WIKI images. No terms stated.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://www.robots.ox.ac.uk/~vgg/data/laofiw/
+- id: morph
+  name: MORPH-II
+  subtitle: Mugshot-style · NC
+  full: MORPH Album 2 (UNC Wilmington)
+  column: 1
+  y: 1055
+  kind: other
+  status: On request
+  attrs:
+    terms: Non-commercial academic release, separate from commercial edition. 65% African-American men.
+    commercial: Non-commercial only
+    consent: None
+- id: utk
+  name: UTKFace
+  subtitle: Available · NC
+  full: UTKFace (Univ. of Tennessee)
+  column: 2
+  y: 1055
+  kind: web
+  status: Available
+  attrs:
+    terms: >-
+      Non-commercial research only. Images "collected from the Internet"; per FairFace paper, from MORPH, CACD and web search. Untraceable per image.
+    commercial: Non-commercial only
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://susanqq.github.io/UTKFace/
+- id: celeba
+  name: CelebA
+  subtitle: Available · NC
+  full: CelebFaces Attributes (CUHK)
+  column: 0
+  y: 1160
+  kind: web
+  status: Available
+  attrs:
+    terms: Non-commercial research; no copying or distributing any portion of images or derived data.
+    commercial: Non-commercial only
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+- id: laofiw
+  name: LAOFIW
+  subtitle: ⊘ Withdrawn
+  full: Labeled Ancestral Origin Faces in the Wild
+  column: 1
+  y: 1160
+  kind: web
+  status: Withdrawn
+  attrs:
+    terms: >-
+      Bing Image Search with 43 nationality keywords. Privacy notice only; download links removed. Only 143 images traced to Flickr.
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://www.robots.ox.ac.uk/~vgg/data/laofiw/
+- id: ppb
+  name: PPB
+  subtitle: Official portraits
+  full: Pilot Parliaments Benchmark
+  column: 2
+  y: 1160
+  kind: other
+  status: On request
+  attrs:
+    terms: >-
+      1,270 parliamentary portraits from 6 countries. Dataset terms unconfirmed (project page CC BY-NC-ND 4.0).
+    commercial: Unclear
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://www.media.mit.edu/projects/gender-shades/overview/
+- id: fhibe
+  name: FHIBE
+  subtitle: ✓ Consented · eval only
+  full: Sony Fair Human-Centric Image Benchmark
+  column: 3
+  y: 1160
+  kind: other
+  status: Available
+  attrs:
+    terms: >-
+      10,318 images of 1,981 paid, consenting people from 81 countries (Xiang et al., Nature 2025). Terms of use: fairness/bias evaluation and mitigation only; no training except bias detection or mitigation methods; no race or gender classifiers; no re-identification. Account + terms required. Now hosted by Mozilla Data Collective, which handles consent revocation; old versions must be deleted.
+    commercial: Evaluation only
+    consent: Informed and revocable
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://fairnessbenchmark.ai.sony/data-card/fhibe-datasheet
+- id: ccv2
+  name: Casual Conv. v2
+  subtitle: ✓ Consented · video
+  full: Meta Casual Conversations v2
+  column: 4
+  y: 1160
+  kind: other
+  status: Available
+  attrs:
+    terms: Paid participants; limited licence, evaluation plus training on certain labels.
+    commercial: Evaluation only
+    consent: Informed and revocable
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://ai.meta.com/datasets/casual-conversations-v2-dataset/
+links:
+- from: flickr
+  to: yfcc
+  how: from
+- from: flickr
+  to: ffhq
+  how: from
+- from: yfcc
+  to: mega
+  how: from
+- from: yfcc
+  to: fairface
+  how: from
+- from: yfcc
+  to: dif
+  how: from
+- from: mega
+  to: dive
+  how: from
+- from: dive
+  to: faircv
+  how: from
+- from: bios
+  to: faircv
+  how: from
+- from: msceleb
+  to: rfw
+  how: from
+- from: msceleb
+  to: bupt
+  how: from
+- from: casia
+  to: demog
+  how: from
+- from: vggface
+  to: demog
+  how: from
+- from: vgg2
+  to: demog
+  how: from
+- from: vgg2
+  to: bfw
+  how: from
+- from: news
+  to: lfw
+  how: from
+- from: lfw
+  to: lfwa
+  how: from
+- from: lfw
+  to: lfwplus
+  how: from
+- from: lfw
+  to: mtfl
+  how: from
+- from: lfw
+  to: smfrd
+  how: from
+- from: lfw
+  to: itwe
+  how: from
+- from: lfw
+  to: lfwvar
+  how: from
+- from: lfw
+  to: lfwother
+  how: from
+- from: imdb
+  to: cimdb
+  how: from
+- from: morph
+  to: utk
+  how: partly
+  label_dy: -1

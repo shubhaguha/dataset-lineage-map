@@ -68,7 +68,10 @@ svg { display: block; width: 100%; height: auto; }
 .lane-band { fill: var(--band); }
 .lane-label { font-size: 11px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
 .edge { fill: none; stroke: var(--muted); stroke-width: 1.5; transition: opacity .15s, stroke .15s; }
-.edge.inferred { stroke-dasharray: 5 4; }
+.edge.dashed { stroke-dasharray: 5 4; }
+.node.dashed rect.body { stroke-dasharray: 6 4; }
+.box-dash { width: 18px; height: 12px; border: 1.75px dashed var(--text-secondary); border-radius: 3px; display: inline-block; }
+.chain { font-size: 13px; line-height: 1.6; }
 .edge-hit { fill: none; stroke: transparent; stroke-width: 9; cursor: help; }
 .edge-label { font-size: 10.5px; fill: var(--text-primary); paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; opacity: 0; transition: opacity .15s; }
 svg.alllabels .edge-label { opacity: 1; }
@@ -124,7 +127,7 @@ td.sz { font-variant-numeric: tabular-nums; white-space: nowrap; }
     <div class="legend" id="legend" aria-label="Legend"></div>
   </header>
 
-  <section class="card tracer" aria-label="Trace a dataset">
+  <section class="card tracer" id="tracer" aria-label="Trace a dataset">
     <div class="tracer-head"><h2>Trace a dataset</h2><span class="tracer-hint">Pick one to follow it from its origin through every paper that used it. The boxes in the left column of the map do the same. The number is how many links carry it.</span></div>
     <div class="chips" id="chips"></div>
     <div class="opts">
@@ -139,13 +142,13 @@ td.sz { font-variant-numeric: tabular-nums; white-space: nowrap; }
     </aside>
   </div>
 
-  <details class="card table" open>
+  <details class="card table" id="dtable" open>
     <summary>Dataset table</summary>
     <table id="dtbl"><thead><tr><th>Dataset</th><th>Original source</th><th>Real or synthetic</th><th>Path to recent benchmarks</th><th>Sizes as reported</th><th>Where to get it</th></tr></thead><tbody></tbody></table>
   </details>
   <details class="card table">
-    <summary>Paper and source table</summary>
-    <table id="ntbl"><thead><tr><th>Node</th><th>Type</th><th>Datasets taken (from)</th><th>Datasets supplied (to)</th><th>Link</th></tr></thead><tbody></tbody></table>
+    <summary id="ntitle"></summary>
+    <table id="ntbl"><thead></thead><tbody></tbody></table>
   </details>
   <p class="foot" id="foot"></p>
 </div>
@@ -154,20 +157,30 @@ td.sz { font-variant-numeric: tabular-nums; white-space: nowrap; }
 <script>
 // ---- Generic lineage renderer. All content comes from the JSON block above (built from YAML by build.py). ----
 const DATA = JSON.parse(document.getElementById('lineage-data').textContent);
-const W = 170, H = 46, TOP = 52, ROW = 58;
+const LAY = Object.assign({ node_width: 170, node_height: 46, top: 52, row_height: 58, first_x: 24, first_gap: 276, col_gap: 220, min_curve: 40 }, DATA.layout || {});
+const W = LAY.node_width, H = LAY.node_height, TOP = LAY.top, ROW = LAY.row_height;
 const KIND = Object.fromEntries(Object.entries(DATA.kinds).map(([k, v]) => [k, { label: v.label, legend: v.legend || v.label, v: '--' + v.color }]));
-const COLS = DATA.columns.map((label, i) => ({ label, x: i === 0 ? 24 : 300 + (i - 1) * 220 }));
+const STATUS = DATA.statuses || {};
+const FIELDS = DATA.node_fields || [];
+const LL = DATA.links_legend || {};
+const LTYPE = DATA.link_types || { paper: { legend: LL.paper || 'Source stated in the citing paper' }, inferred: { legend: LL.inferred || 'Inferred', dashed: true, tag: 'inferred' } };
+const COLS = DATA.columns.map((label, i) => ({ label, x: LAY.first_x + (i === 0 ? 0 : LAY.first_gap + (i - 1) * LAY.col_gap) }));
 const cx = i => COLS[i].x;
 const row = i => TOP + i * ROW;
+const posY = (n, i) => n.y != null ? n.y : row(n.row != null ? n.row : i);
+const refsOf = (n, isPaper) => n.refs || (n.url ? [{ label: isPaper ? 'Paper (DOI)' : 'Source', short: isPaper ? 'DOI' : 'Source', url: n.url }] : []);
 
-// column 0: one box per original dataset (id = dataset key), in YAML order
+// datasets: the traced left-column boxes (id = dataset key); nodes/papers: all other boxes
+const DSLIST = DATA.datasets || [];
+const NODES = [...(DATA.papers || []), ...(DATA.nodes || [])];
 const D = [
-  ...DATA.datasets.map((d, i) => ({ id: d.id, name: d.name, sub: d.source || '', full: d.source_full || d.source || '', c: 0, y: row(i), k: d.kind, url: d.url })),
-  ...DATA.papers.map(p => ({ id: p.id, name: p.name, sub: p.subtitle || '', full: p.full || p.name, c: p.column, y: row(p.row), k: p.kind || 'paper', url: p.url, note: p.note, own: p.created && p.created.length ? p.created.map(t => ['', t]) : undefined }))
+  ...DSLIST.map((d, i) => ({ id: d.id, name: d.name, sub: d.source || '', full: d.source_full || d.source || '', c: 0, y: posY(d, i), k: d.kind, refs: refsOf(d, false), isDs: true })),
+  ...NODES.map(p => { const k = p.kind || 'paper'; return { id: p.id, name: p.name, sub: p.subtitle || '', full: p.full || p.name, c: p.column, y: posY(p), k, refs: refsOf(p, k === 'paper'), note: p.note, status: p.status, attrs: p.attrs || {}, own: p.created && p.created.length ? p.created.map(t => ['', t]) : undefined }; })
 ];
-D.forEach(d => d.x = cx(d.c));
-const DS = Object.fromEntries(DATA.datasets.map(d => [d.id, { name: d.title || d.name, aka: d.aka || '', real: d.real || '', path: d.path || '', sizes: d.sizes || '', get: d.get || '', note: d.note }]));
-const E = DATA.links.map(l => ({ s: l.from, t: l.to, l: l.label, ds: l.datasets, how: l.how || 'paper', n: l.note, lt: l.label_pos, ly: l.label_dy, off: l.offset }));
+D.forEach((d, i) => { const src = i < DSLIST.length ? DSLIST[i] : NODES[i - DSLIST.length]; d.x = src.x != null ? src.x : cx(d.c); });
+const DS = Object.fromEntries(DSLIST.map(d => [d.id, { name: d.title || d.name, aka: d.aka || '', real: d.real || '', path: d.path || '', sizes: d.sizes || '', get: d.get || '', note: d.note }]));
+const E = DATA.links.map(l => ({ s: l.from, t: l.to, l: l.label || '', ds: l.datasets || [], how: l.how || Object.keys(LTYPE)[0], n: l.note, lt: l.label_pos, ly: l.label_dy, off: l.offset }));
+const tagOf = e => (LTYPE[e.how] || {}).tag || '';
 
 // page text and legend
 document.title = DATA.page_title || DATA.title;
@@ -177,12 +190,15 @@ document.getElementById('vizTitle').textContent = DATA.svg_title || DATA.title;
 document.getElementById('hint').innerHTML = DATA.panel_hint || '';
 document.getElementById('foot').innerHTML = DATA.footer || '';
 (() => {
-  const used = new Set(D.map(d => d.k)), LL = DATA.links_legend || {};
+  const used = new Set(D.map(d => d.k)), usedHow = new Set(E.map(e => e.how)), usedSt = new Set(D.map(d => d.status));
   const sw = k => `<span><i class="sw" style="border-color:var(${KIND[k].v});background:color-mix(in srgb,var(${KIND[k].v}) 14%,transparent)"></i>${KIND[k].legend}</span>`;
   let html = Object.keys(KIND).filter(k => used.has(k)).map(sw).join('');
-  html += `<span><i class="ln"></i>${LL.paper || 'Source stated in the citing paper'}</span>`;
-  if (E.some(e => e.how === 'inferred')) html += `<span><i class="ln dash"></i>${LL.inferred || 'Inferred'}</span>`;
+  html += Object.entries(LTYPE).filter(([k]) => usedHow.has(k) || k === 'paper').map(([k, t]) => `<span><i class="ln${t.dashed ? ' dash' : ''}"></i>${t.legend}</span>`).join('');
+  html += Object.entries(STATUS).filter(([k, s]) => s.dashed && usedSt.has(k)).map(([k, s]) => `<span><i class="box-dash"></i>${s.legend || k}</span>`).join('');
   document.getElementById('legend').innerHTML = html;
+  if (!DSLIST.length) document.getElementById('tracer').style.display = 'none';
+  if (!DSLIST.length) document.getElementById('dtable').style.display = 'none';
+  document.getElementById('ntitle').textContent = DATA.node_table_title || 'Paper and source table';
 })();
 
 const byId = Object.fromEntries(D.map(d => [d.id, d]));
@@ -192,8 +208,9 @@ E.forEach((e, i) => { parents[e.t].push(i); children[e.s].push(i); });
 
 const svgNS = 'http://www.w3.org/2000/svg';
 const svg = document.getElementById('viz');
-const VW = COLS[COLS.length - 1].x + W + 16, VH = Math.max(...D.map(d => d.y)) + H + 30;
+const VW = LAY.width || Math.max(...D.map(d => d.x)) + W + 16, VH = LAY.height || Math.max(...D.map(d => d.y)) + H + 30;
 svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+if (DATA.labels === 'always') svg.classList.add('alllabels');
 const css = getComputedStyle(document.querySelector('.viz-root'));
 const el = (t, a, parent = svg) => { const e = document.createElementNS(svgNS, t); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -202,21 +219,28 @@ const defs = el('defs', {});
 const mk = el('marker', { id:'arr', viewBox:'0 0 10 10', refX:'9', refY:'5', markerWidth:'6', markerHeight:'6', orient:'auto-start-reverse' }, defs);
 el('path', { d:'M0,0 L10,5 L0,10 z', fill:'var(--muted)' }, mk);
 
-COLS.forEach(c => {
-  el('rect', { class:'lane-band', x:c.x - 12, y:8, width:W + 24, height:VH - 16, rx:10 });
-  const t = el('text', { class:'lane-label', x:c.x, y:30 }); t.textContent = c.label;
-});
+if (DATA.lanes) {
+  DATA.lanes.forEach(l => {
+    el('rect', { class:'lane-band', x:10, y:l.y, width:VW - 20, height:l.h, rx:10 });
+    const t = el('text', { class:'lane-label', x:LAY.first_x, y:l.label_y != null ? l.label_y : l.y + 18 }); t.textContent = l.label;
+  });
+} else {
+  COLS.forEach(c => {
+    el('rect', { class:'lane-band', x:c.x - 12, y:8, width:W + 24, height:VH - 16, rx:10 });
+    const t = el('text', { class:'lane-label', x:c.x, y:30 }); t.textContent = c.label;
+  });
+}
 
 // edges
 const edgeEls = [], labelEls = [];
 const gEdges = el('g', {}), gLabels = el('g', {});
 E.forEach((e, i) => {
   const s = byId[e.s], t = byId[e.t], off = e.off || 0;
-  const x1 = s.x + W, y1 = s.y + H/2 + off/2, x2 = t.x - 2, y2 = t.y + H/2 + off, dx = Math.max(40, (x2 - x1) / 2);
+  const x1 = s.x + W, y1 = s.y + H/2 + off/2, x2 = t.x - 2, y2 = t.y + H/2 + off, dx = Math.max(LAY.min_curve, (x2 - x1) / 2);
   const d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
-  const p = el('path', { class:'edge' + (e.how === 'inferred' ? ' inferred' : ''), d, 'marker-end':'url(#arr)' }, gEdges);
+  const p = el('path', { class:'edge' + ((LTYPE[e.how] || {}).dashed ? ' dashed' : ''), d, 'marker-end':'url(#arr)' }, gEdges);
   const hit = el('path', { class:'edge-hit', d }, gEdges);
-  const tt = el('title', {}, hit); tt.textContent = `${s.name} → ${t.name}: ${e.l}\n${e.n || ''}`;
+  const tt = el('title', {}, hit); tt.textContent = `${s.name} → ${t.name}${e.l ? ': ' + e.l : ''}\n${e.n || ''}`;
   hit.addEventListener('mouseenter', () => { if (!pinned && !activeDs) focusEdges(new Set([i])); });
   hit.addEventListener('mouseleave', () => { if (!pinned && !activeDs) clearFocus(); });
   p.dataset.i = i; edgeEls.push(p);
@@ -225,20 +249,21 @@ E.forEach((e, i) => {
   const lx = m*m*m*x1 + 3*m*m*u*(x1+dx) + 3*m*u*u*(x2-dx) + u*u*u*x2;
   const ly = m*m*m*y1 + 3*m*m*u*y1 + 3*m*u*u*y2 + u*u*u*y2;
   const lb = el('text', { class:'edge-label', x:lx, y:ly - 4 + (e.ly || 0), 'text-anchor':'middle' }, gLabels);
-  lb.textContent = e.l; lb.dataset.i = i; labelEls.push(lb);
+  lb.textContent = e.l || (LTYPE[e.how] || {}).label || ''; lb.dataset.i = i; labelEls.push(lb);
 });
 
 // nodes
 const nodeEls = {};
 D.forEach(d => {
   const c = css.getPropertyValue(KIND[d.k].v).trim();
-  const g = el('g', { class:'node', tabindex:'0', role:'button', 'aria-label':`${d.name}: ${KIND[d.k].label}`, transform:`translate(${d.x},${d.y})` });
+  const st = STATUS[d.status] || {};
+  const g = el('g', { class:'node' + (st.dashed ? ' dashed' : ''), tabindex:'0', role:'button', 'aria-label':`${d.name}: ${KIND[d.k].label}${d.status ? ', ' + d.status : ''}`, transform:`translate(${d.x},${d.y})` });
   el('rect', { class:'hit', x:-6, y:-6, width:W+12, height:H+12, rx:10 }, g);
   el('rect', { class:'body', width:W, height:H, rx:6, fill:`color-mix(in srgb, ${c} 13%, var(--surface-1))`, stroke:c }, g);
   const n = el('text', { class:'name', x:10, y:19 }, g); n.textContent = d.name;
   const s = el('text', { class:'sub', x:10, y:35 }, g); s.textContent = d.sub || '';
   nodeEls[d.id] = g;
-  const isDs = d.c === 0;
+  const isDs = d.isDs;
   if (isDs) g.classList.add('dsnode');
   g.addEventListener('mouseenter', () => { if (!pinned && !activeDs) (isDs ? previewDs(d.id) : focusNode(d.id)); });
   g.addEventListener('focus', () => { if (!pinned && !activeDs) (isDs ? previewDs(d.id) : focusNode(d.id)); });
@@ -301,39 +326,64 @@ const panel = document.getElementById('panel');
 const hintHTML = panel.innerHTML;
 const dsLink = k => `<span class="ds" data-ds="${k}">${esc(DS[k].name)}</span>`;
 function bindDs() { panel.querySelectorAll('.ds').forEach(s => s.addEventListener('click', () => showDs(s.dataset.ds))); }
+const statusChip = d => d.status ? `<span class="chip">${STATUS[d.status] && STATUS[d.status].badge ? STATUS[d.status].badge + ' ' : ''}${esc(d.status)}</span>` : '';
+const fieldsHTML = d => FIELDS.filter(f => f.panel !== false && d.attrs[f.key] != null).map(f => `<div class="k">${esc(f.label)}</div><p>${esc(d.attrs[f.key])}</p>`).join('');
+const refsHTML = d => `<div class="links">${d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)} ↗</a>`).join('')}</div>`;
+function chainUp(id, seen = new Set()) {
+  // longest path back to a root, for the provenance chain line
+  if (seen.has(id)) return [id];
+  const ps = parents[id]; if (!ps.length) return [id];
+  let best = []; ps.forEach(i => { const c = chainUp(E[i].s, new Set([...seen, id])); if (c.length > best.length) best = c; });
+  return [...best, id];
+}
 function renderNode(id) {
   const d = byId[id], c = css.getPropertyValue(KIND[d.k].v).trim();
   const inc = parents[id].map(i => E[i]), out = children[id].map(i => E[i]);
-  const li = (e, other) => `<li><b>${esc(e.l)}</b> <span class="from">${other}${e.how === 'inferred' ? ' · inferred' : ''}</span>${e.n ? `<br><span class="from">${esc(e.n)}</span>` : ''}</li>`;
-  panel.innerHTML = `
+  const tagged = (e, sep) => tagOf(e) ? sep + tagOf(e) : '';
+  const head = `
     <h2>${esc(d.name)}</h2><p class="full">${esc(d.full)}</p>
-    <span class="chip"><i style="background:${c}"></i>${esc(KIND[d.k].label)}</span>
+    <span class="chip"><i style="background:${c}"></i>${esc(KIND[d.k].label)}</span>${statusChip(d)}`;
+  if (DATA.panel === 'lineage') {
+    // dataset-to-dataset maps: attributes, provenance chain, parents, all descendants
+    const chain = chainUp(id), down = [...walk(id, 'down')];
+    panel.innerHTML = `${head}
+    ${fieldsHTML(d)}
+    ${chain.length > 1 ? `<div class="k">Provenance chain</div><p class="chain">${chain.map(k => esc(byId[k].name)).join(' → ')}</p>` : ''}
+    <div class="k">Built from</div><p>${inc.length ? inc.map(e => esc(byId[e.s].name) + (tagOf(e) ? ` (${esc(tagOf(e))})` : '')).join(', ') : 'No upstream dataset in this map'}</p>
+    <div class="k">Downstream</div><p>${down.length ? down.map(k => esc(byId[k].name)).join(', ') : 'None in this map'}</p>
+    ${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}
+    ${refsHTML(d)}`;
+    return;
+  }
+  const li = (e, other) => `<li><b>${esc(e.l)}</b> <span class="from">${other}${tagged(e, ' · ')}</span>${e.n ? `<br><span class="from">${esc(e.n)}</span>` : ''}</li>`;
+  panel.innerHTML = `${head}
+    ${fieldsHTML(d)}
     ${inc.length ? `<div class="k">Datasets taken</div><ul>${inc.map(e => li(e, '← ' + esc(byId[e.s].name))).join('')}</ul>` : ''}
     ${d.own ? `<div class="k">Datasets created here</div><ul>${d.own.map(o => `<li>${esc(o[1])}</li>`).join('')}</ul>` : ''}
-    ${out.length ? `<div class="k">Supplied to</div><ul>${out.map(e => `<li><b>${esc(e.l)}</b> <span class="from">→ ${esc(byId[e.t].name)}${e.how === 'inferred' ? ' · inferred' : ''}</span></li>`).join('')}</ul>` : ''}
+    ${out.length ? `<div class="k">Supplied to</div><ul>${out.map(e => `<li><b>${esc(e.l)}</b> <span class="from">→ ${esc(byId[e.t].name)}${tagged(e, ' · ')}</span></li>`).join('')}</ul>` : ''}
     ${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}
-    <div class="k">Trace</div><p>${[...new Set([...inc, ...out].flatMap(e => e.ds))].map(dsLink).join(' · ') || '—'}</p>
-    <div class="links">${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${d.k === 'paper' ? 'Paper (DOI)' : 'Source'} ↗</a>` : ''}</div>`;
+    ${DSLIST.length ? `<div class="k">Trace</div><p>${[...new Set([...inc, ...out].flatMap(e => e.ds))].map(dsLink).join(' · ') || '—'}</p>` : ''}
+    ${refsHTML(d)}`;
   bindDs();
 }
 function renderDs(k) {
   const s = DS[k], src = byId[k], c = css.getPropertyValue(KIND[src.k].v).trim();
-  const es = E.filter(e => e.ds.includes(k));
+  const es = E.filter(e => e.ds.includes(k)), u = src.refs[0];
   panel.innerHTML = `
     <h2>${esc(s.name)}</h2>${s.aka ? `<p class="full">Also: ${esc(s.aka)}</p>` : ''}
     <span class="chip"><i style="background:${c}"></i>${esc(KIND[src.k].label)}</span>
-    <div class="k">Original source</div><p>${esc(src.sub)}: ${esc(src.full)}${src.url ? ` · <a href="${esc(src.url)}" target="_blank" rel="noopener">link ↗</a>` : ''}</p>
+    <div class="k">Original source</div><p>${esc(src.sub)}: ${esc(src.full)}${u ? ` · <a href="${esc(u.url)}" target="_blank" rel="noopener">link ↗</a>` : ''}</p>
     ${s.real ? `<div class="k">Real or synthetic</div><p>${esc(s.real)}</p>` : ''}
     ${s.path ? `<div class="k">Path</div><p>${esc(s.path)}</p>` : ''}
     ${s.sizes ? `<div class="k">Sizes as reported</div><p>${esc(s.sizes)}</p>` : ''}
     ${s.note ? `<div class="k">Note</div><p>${esc(s.note)}</p>` : ''}
     ${s.get ? `<div class="k">Where to get it</div><p>${esc(s.get)}</p>` : ''}
-    <div class="k">Links on the map (${es.length})</div><ul>${es.map(e => `<li>${esc(byId[e.s].name)} → ${esc(byId[e.t].name)} <span class="from">(${esc(e.l)}${e.how === 'inferred' ? ', inferred' : ''})</span></li>`).join('')}</ul>`;
+    <div class="k">Links on the map (${es.length})</div><ul>${es.map(e => `<li>${esc(byId[e.s].name)} → ${esc(byId[e.t].name)} <span class="from">(${esc(e.l)}${tagOf(e) ? ', ' + esc(tagOf(e)) : ''})</span></li>`).join('')}</ul>`;
 }
 
 // dataset chips
 const chipBox = document.getElementById('chips');
-const order = D.filter(d => d.c === 0).map(d => d.id);
+const order = DSLIST.map(d => d.id);
 const chips = order.map(k => {
   const b = document.createElement('button');
   b.className = 'dchip'; b.dataset.k = k; b.setAttribute('aria-pressed', 'false');
@@ -353,12 +403,25 @@ order.forEach(k => {
   tr.innerHTML = `<td><b>${esc(s.name)}</b>${s.aka ? `<br><span style="color:var(--text-secondary)">${esc(s.aka)}</span>` : ''}</td><td>${esc(byId[k].sub)}</td><td>${esc(s.real)}</td><td>${esc(s.path)}</td><td class="sz">${esc(s.sizes).replace(/ · /g, '<br>')}</td><td>${esc(s.get)}</td>`;
   dt.appendChild(tr);
 });
+const NCOLS = DATA.node_table || [
+  { col: 'name', label: 'Node' }, { col: 'kind', label: 'Type' }, { col: 'from', label: 'Datasets taken (from)' },
+  { col: 'to', label: 'Datasets supplied (to)' }, { col: 'links', label: 'Link' }
+];
+document.querySelector('#ntbl thead').innerHTML = `<tr>${NCOLS.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr>`;
 const nt = document.querySelector('#ntbl tbody');
+const cell = (c, d) => {
+  if (c.col === 'name') return `<b>${esc(d.name)}</b><br><span style="color:var(--text-secondary)">${esc(d.full)}</span>`;
+  if (c.col === 'kind') return esc(KIND[d.k].label);
+  if (c.col === 'status') return esc(d.status || '');
+  if (c.col === 'field') return esc(d.attrs[c.key] != null ? d.attrs[c.key] : '');
+  if (c.col === 'from') return parents[d.id].map(i => E[i].l ? `${esc(E[i].l)} (${esc(byId[E[i].s].name)}${tagOf(E[i]) ? ', ' + esc(tagOf(E[i])) : ''})` : esc(byId[E[i].s].name) + (tagOf(E[i]) ? ` (${esc(tagOf(E[i]))})` : '')).join(E.some(e => e.l) ? '; ' : ', ') || '—';
+  if (c.col === 'to') return children[d.id].map(i => E[i].l ? `${esc(E[i].l)} (${esc(byId[E[i].t].name)})` : esc(byId[E[i].t].name)).join(E.some(e => e.l) ? '; ' : ', ') || '—';
+  if (c.col === 'links') return d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.short || r.label)}</a>`).join(' · ');
+  return '';
+};
 D.forEach(d => {
   const tr = document.createElement('tr');
-  const inc = parents[d.id].map(i => `${esc(E[i].l)} (${esc(byId[E[i].s].name)}${E[i].how === 'inferred' ? ', inferred' : ''})`).join('; ');
-  const out = children[d.id].map(i => `${esc(E[i].l)} (${esc(byId[E[i].t].name)})`).join('; ');
-  tr.innerHTML = `<td><b>${esc(d.name)}</b><br><span style="color:var(--text-secondary)">${esc(d.full)}</span></td><td>${esc(KIND[d.k].label)}</td><td>${inc || '—'}</td><td>${out || '—'}</td><td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${d.k === 'paper' ? 'DOI' : 'Source'}</a>` : ''}</td>`;
+  tr.innerHTML = NCOLS.map(c => `<td>${cell(c, d)}</td>`).join('');
   nt.appendChild(tr);
 });
 </script>

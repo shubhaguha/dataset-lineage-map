@@ -1,0 +1,149 @@
+# Fairness extension of the data-quality lineage map: adds demodq (Guha et al., TKDE 2024)
+# and traces its five datasets.
+# Build:  python build.py data/fair-data-quality.yaml fair-data-quality-lineage.html
+#
+# `extends` pulls in everything from data-quality.yaml. Entries below with an existing id
+# patch that entry field by field (adult, cleanml); new ids and all links are appended.
+
+extends: data-quality.yaml
+footer: >-
+  Sources: the dataset sections and references of each paper on the map, read in full (ADR, Raha, Baran, HoloClean, BART, Detecting data errors, Holistic, NADEEF, Truth finding, REIN, CleanML, demodq TKDE 2024), CleanML's dataset descriptions and the BigDaMa/raha GitHub repository (November 2026). Dashed links are inferences, not claims made by the authors. Download links come from the papers and were not re-checked.
+datasets:
+- id: adult
+  path: Kohavi 1996 (UCI) → REIN → ADR (clustering and kNN); UCI → demodq (TKDE)
+  sizes: 'REIN 45,223×15, error rate 0.58 · TKDE 48,844 tuples, sensitive: sex, race'
+- id: folk
+  name: Folk (ACS)
+  source: US Census ACS microdata
+  source_full: US Census Bureau American Community Survey data, as packaged by folktables (Ding et al. 2021)
+  kind: open
+  url: https://github.com/zykls/folktables
+  aka: folktables
+  real: Real US census microdata
+  path: US Census ACS → folktables (Retiring Adult, 2021) → demodq (TKDE)
+  sizes: 'TKDE 378,817 tuples (California, 2018), sensitive: sex, race'
+  get: github.com/zykls/folktables
+  note: >-
+    TKDE uses the California 2018 subset and replicates the Adult income task, following Ding et al., who proposed it as a replacement for Adult.
+- id: credit
+  name: Credit
+  source: Kaggle Give Me Some Credit
+  source_full: Kaggle competition "Give Me Some Credit" (credit distress prediction)
+  kind: open
+  url: https://www.kaggle.com/c/GiveMeSomeCredit
+  aka: Give Me Some Credit
+  real: Real
+  path: Kaggle → CleanML; Kaggle → demodq (TKDE)
+  sizes: 'CleanML 150,000×10 · TKDE 150,000 tuples, sensitive: age'
+  get: kaggle.com/c/GiveMeSomeCredit
+  note: >-
+    CleanML and TKDE cite the same Kaggle competition data. TKDE builds on the CleanML code but cites Kaggle for the data.
+- id: german
+  name: German credit
+  source: UCI Statlog
+  source_full: Statlog (German Credit Data), UCI Machine Learning Repository
+  kind: open
+  url: https://archive.ics.uci.edu/ml/datasets/statlog+(german+credit+data)
+  aka: Statlog
+  real: Real
+  path: UCI → demodq (TKDE)
+  sizes: 'TKDE 1,000 tuples, sensitive: age, sex'
+  get: UCI Statlog (German Credit Data)
+  note: >-
+    TKDE drops foreign_worker, whose documented semantics are probably wrong. It derives sex from personal_status.
+- id: heart
+  name: Heart
+  source: Kaggle cardiovascular disease
+  source_full: >-
+    Cardiovascular Disease dataset (Kaggle, sulianova): patient measurements and presence of heart disease
+  kind: open
+  url: https://www.kaggle.com/datasets/sulianova/cardiovascular-disease-dataset
+  aka: Cardiovascular disease
+  real: Real patient measurements
+  path: Kaggle → demodq (TKDE)
+  sizes: 'TKDE 70,000 tuples, sensitive: sex, age'
+  get: kaggle.com/datasets/sulianova/cardiovascular-disease-dataset
+papers:
+- id: cleanml
+  note: >-
+    Only Titanic, Restaurant and Credit are drawn. CleanML's other datasets (e.g. Airbnb, USCensus, Movie) aren't traced here. Dataset sources: github.com/chu-data-lab/CleanML, DatasetDescriptions.pdf.
+- id: retadult
+  name: Retiring Adult
+  subtitle: NeurIPS 2021 · folktables
+  full: >-
+    Retiring Adult: new datasets for fair machine learning (Ding, Hardt, Miller, Schmidt), NeurIPS 2021: introduces the folktables package
+  column: 4
+  row: 23.0
+  url: https://github.com/zykls/folktables
+  note: >-
+    Proposes retiring UCI Adult and replacing it with ACS census tasks through the folktables package. Only the path to TKDE is drawn.
+- id: tkde
+  name: demodq (TKDE)
+  subtitle: TKDE 2024 · 5 datasets
+  full: >-
+    Automated data cleaning can hurt fairness in machine learning-based decision making (Guha, Khan, Stoyanovich, Schelter), IEEE TKDE 36(12) 2024; extends the ICDE 2023 paper
+  column: 5
+  row: 24.172
+  url: https://doi.org/10.1109/TKDE.2024.3365524
+  note: >-
+    Extends the CleanML benchmark code with fairness metrics, but cites each dataset from its public source. There is no clean ground truth: missing values, outliers and label errors are flagged by automated detectors and then auto-repaired. Sensitive attributes follow prior fairness work.
+links:
+- from: credit
+  to: cleanml
+  label: Credit
+  datasets:
+  - credit
+  how: paper
+  note: 'CleanML cites the Kaggle Give Me Some Credit data: 150,000 records, 10 attributes.'
+  label_pos: 0.8
+- from: folk
+  to: retadult
+  label: ACS
+  datasets:
+  - folk
+  how: paper
+  note: folktables packages US Census American Community Survey data.
+  label_pos: 0.6
+- from: retadult
+  to: tkde
+  label: folk (CA 2018)
+  datasets:
+  - folk
+  how: paper
+  note: >-
+    TKDE cites folktables and Ding et al. [23]: "based on US census data"; California 2018 subset, 378,817 tuples.
+  label_pos: 0.5
+  label_dy: -4
+- from: adult
+  to: tkde
+  label: adult
+  datasets:
+  - adult
+  how: paper
+  note: 'TKDE cites the UCI Adult page: 48,844 tuples; sensitive attributes sex and race.'
+  label_pos: 0.85
+- from: credit
+  to: tkde
+  label: credit
+  datasets:
+  - credit
+  how: paper
+  note: 'TKDE cites Kaggle Give Me Some Credit: 150,000 tuples; sensitive attribute age.'
+  label_pos: 0.45
+- from: german
+  to: tkde
+  label: german
+  datasets:
+  - german
+  how: paper
+  note: 'TKDE cites UCI Statlog German credit: 1,000 tuples; sensitive attributes age and sex.'
+  label_pos: 0.62
+- from: heart
+  to: tkde
+  label: heart
+  datasets:
+  - heart
+  how: paper
+  note: >-
+    TKDE cites the Kaggle cardiovascular disease dataset: 70,000 tuples; sensitive attributes sex and age.
+  label_pos: 0.78

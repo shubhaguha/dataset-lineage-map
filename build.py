@@ -5,6 +5,9 @@ Usage:
     python build.py data/data-quality.yaml data-quality-lineage.html
     python build.py data/data-quality.yaml --check      # validate only
 
+A data file may start with `extends: other.yaml` to build on another map
+(see load()).
+
 Requires PyYAML (pip install pyyaml). The output is a single HTML file that
 opens directly from disk; the template lives in template/lineage.html.
 """
@@ -22,12 +25,51 @@ COLORS = {"series-1", "series-2", "series-3", "series-4", "neutral"}
 HOW = {"paper", "inferred"}
 
 
+LIST_KEYS = ("datasets", "papers", "nodes")
+DICT_KEYS = ("kinds", "statuses", "link_types", "layout", "links_legend")
+
+
+def load(path, _seen=()):
+    """Load a YAML file, resolving `extends:` (path relative to the file).
+
+    In the extending file, list entries (datasets/papers/nodes) whose id already
+    exists patch the base entry field by field; new ids are appended. Links are
+    appended. Dict sections (kinds, statuses, ...) are merged; other keys override.
+    """
+    path = Path(path).resolve()
+    if path in _seen:
+        raise SystemExit(f"extends cycle at {path}")
+    doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    base_ref = doc.pop("extends", None)
+    if not base_ref:
+        return doc
+    base = load(path.parent / base_ref, _seen + (path,))
+    for k, v in doc.items():
+        if k in LIST_KEYS:
+            items = base.setdefault(k, [])
+            index = {it.get("id"): it for it in items}
+            for it in v or []:
+                if it.get("id") in index:
+                    index[it["id"]].update(it)
+                else:
+                    items.append(it)
+        elif k == "links":
+            base.setdefault("links", []).extend(v or [])
+        elif k in DICT_KEYS and isinstance(v, dict):
+            base.setdefault(k, {}).update(v)
+        else:
+            base[k] = v
+    return base
+
+
 def validate(doc):
     """Return (errors, warnings) as lists of strings."""
     errors, warnings = [], []
-    for key in ("title", "columns", "kinds", "datasets", "papers", "links"):
+    for key in ("title", "columns", "kinds", "links"):
         if key not in doc:
             errors.append(f"missing top-level key: {key}")
+    if not any(doc.get(k) for k in LIST_KEYS):
+        errors.append("need at least one of: datasets, papers, nodes")
     if errors:
         return errors, warnings
 
@@ -37,18 +79,21 @@ def validate(doc):
             errors.append(f"kinds.{k}: needs label and color")
         elif v["color"] not in COLORS:
             errors.append(f"kinds.{k}: color must be one of {sorted(COLORS)}")
-    if "paper" not in kinds:
-        errors.append("kinds: a 'paper' kind is required")
-
+    statuses = doc.get("statuses")
+    link_types = set(doc.get("link_types") or HOW)
+    field_keys = {f.get("key") for f in doc.get("node_fields") or []}
+    lay = {"node_width": 170, "node_height": 46, "top": 52, "row_height": 58,
+           "first_x": 24, "first_gap": 276, "col_gap": 220, **(doc.get("layout") or {})}
     ncols = len(doc["columns"])
-    ids, col_of, row_of = set(), {}, {}
+    col_x = [lay["first_x"] + (0 if i == 0 else lay["first_gap"] + (i - 1) * lay["col_gap"]) for i in range(ncols)]
+    ids, pos = set(), {}
 
     def add_id(i, where):
         if i in ids:
             errors.append(f"{where}: duplicate id '{i}'")
         ids.add(i)
 
-    for n, d in enumerate(doc["datasets"]):
+    for n, d in enumerate(doc.get("datasets") or []):
         where = f"datasets[{n}] ({d.get('id', '?')})"
         for f in ("id", "name", "kind"):
             if not d.get(f):
@@ -57,56 +102,73 @@ def validate(doc):
             errors.append(f"{where}: unknown kind '{d['kind']}'")
         if d.get("id"):
             add_id(d["id"], where)
-            col_of[d["id"]], row_of[d["id"]] = 0, n
+            y = d.get("y", lay["top"] + d.get("row", n) * lay["row_height"])
+            pos[d["id"]] = (d.get("x", col_x[0]), y)
 
-    for n, p in enumerate(doc["papers"]):
-        where = f"papers[{n}] ({p.get('id', '?')})"
-        for f in ("id", "name", "column", "row"):
+    nodes = [("papers", p) for p in doc.get("papers") or []] + [("nodes", p) for p in doc.get("nodes") or []]
+    for n, (sect, p) in enumerate(nodes):
+        where = f"{sect} ({p.get('id', '?')})"
+        for f in ("id", "name", "column"):
             if p.get(f) is None:
                 errors.append(f"{where}: missing {f}")
+        if p.get("row") is None and p.get("y") is None:
+            errors.append(f"{where}: needs row or y")
         c = p.get("column")
-        if isinstance(c, int) and not 1 <= c < ncols:
-            errors.append(f"{where}: column {c} outside 1..{ncols - 1}")
-        if p.get("kind") and p["kind"] not in kinds:
-            errors.append(f"{where}: unknown kind '{p['kind']}'")
+        if isinstance(c, int) and not 0 <= c < ncols:
+            errors.append(f"{where}: column {c} outside 0..{ncols - 1}")
+        kind = p.get("kind", "paper")
+        if kind not in kinds:
+            errors.append(f"{where}: unknown kind '{kind}'")
+        if p.get("status") is not None and statuses is not None and p["status"] not in statuses:
+            errors.append(f"{where}: unknown status '{p['status']}'")
+        for k in (p.get("attrs") or {}):
+            if k not in field_keys:
+                warnings.append(f"{where}: attrs.{k} is not declared in node_fields (won't be shown)")
+        for r in p.get("refs") or []:
+            if not r.get("url") or not r.get("label"):
+                errors.append(f"{where}: each ref needs label and url")
         if p.get("id"):
             add_id(p["id"], where)
-            col_of[p["id"]], row_of[p["id"]] = c, p.get("row")
+            if isinstance(c, int) and 0 <= c < ncols:
+                y = p["y"] if p.get("y") is not None else lay["top"] + (p.get("row") or 0) * lay["row_height"]
+                pos[p["id"]] = (p.get("x", col_x[c]), y)
 
-    # boxes in the same column must not overlap (box height is ~0.8 row)
-    by_col = {}
-    for i in ids:
-        if isinstance(row_of.get(i), (int, float)):
-            by_col.setdefault(col_of[i], []).append((row_of[i], i))
-    for c, items in by_col.items():
+    # boxes at the same x must not overlap
+    by_x = {}
+    for i, (x, y) in pos.items():
+        by_x.setdefault(x, []).append((y, i))
+    for x, items in by_x.items():
         items.sort()
-        for (r1, a), (r2, b) in zip(items, items[1:]):
-            if r2 - r1 < 0.8:
-                warnings.append(f"column {c}: '{a}' (row {r1}) and '{b}' (row {r2}) overlap")
+        for (y1, a), (y2, b) in zip(items, items[1:]):
+            if y2 - y1 < lay["node_height"] + 2:
+                warnings.append(f"x={x}: '{a}' and '{b}' overlap")
 
-    ds_ids = {d.get("id") for d in doc["datasets"]}
+    ds_ids = {d.get("id") for d in doc.get("datasets") or []}
     used_ds = set()
     for n, l in enumerate(doc["links"]):
         where = f"links[{n}] ({l.get('from', '?')} -> {l.get('to', '?')})"
-        for f in ("from", "to", "label", "datasets"):
+        for f in ("from", "to"):
             if not l.get(f):
                 errors.append(f"{where}: missing {f}")
+        if ds_ids and not l.get("datasets"):
+            errors.append(f"{where}: missing datasets")
         for end in ("from", "to"):
             if l.get(end) and l[end] not in ids:
                 errors.append(f"{where}: unknown {end} '{l[end]}'")
         if l.get("to") in ds_ids:
-            errors.append(f"{where}: 'to' must be a paper, not a dataset")
-        if l.get("how", "paper") not in HOW:
-            errors.append(f"{where}: how must be one of {sorted(HOW)}")
+            errors.append(f"{where}: 'to' must be a paper/node, not a dataset")
+        how = l.get("how", next(iter(link_types)) if doc.get("link_types") else "paper")
+        if how not in link_types:
+            errors.append(f"{where}: how must be one of {sorted(link_types)}")
         for k in l.get("datasets") or []:
             if k not in ds_ids:
                 errors.append(f"{where}: unknown dataset '{k}'")
             used_ds.add(k)
         if l.get("from") in ds_ids and l["from"] not in (l.get("datasets") or []):
             warnings.append(f"{where}: starts at dataset '{l['from']}' but doesn't list it in datasets")
-        cf, ct = col_of.get(l.get("from")), col_of.get(l.get("to"))
-        if isinstance(cf, int) and isinstance(ct, int) and cf >= ct:
-            warnings.append(f"{where}: runs from column {cf} to {ct} (not left to right)")
+        pf, pt = pos.get(l.get("from")), pos.get(l.get("to"))
+        if pf and pt and pf[0] >= pt[0]:
+            warnings.append(f"{where}: doesn't run left to right")
         lp = l.get("label_pos")
         if lp is not None and not 0 <= lp <= 1:
             errors.append(f"{where}: label_pos must be between 0 and 1")
@@ -132,7 +194,7 @@ def main():
     ap.add_argument("--check", action="store_true", help="validate only, don't write")
     args = ap.parse_args()
 
-    doc = yaml.safe_load(args.data.read_text(encoding="utf-8"))
+    doc = load(args.data)
     errors, warnings = validate(doc)
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)
@@ -140,7 +202,7 @@ def main():
         print(f"error: {e}", file=sys.stderr)
     if errors:
         sys.exit(1)
-    summary = f"{len(doc['datasets'])} datasets, {len(doc['papers'])} papers, {len(doc['links'])} links"
+    summary = ", ".join(f"{len(doc[k])} {k}" for k in LIST_KEYS + ("links",) if doc.get(k))
     if args.check or not args.out:
         print(f"OK: {summary}")
         return

@@ -35,18 +35,23 @@
 
 ## Repository layout
 
-- `data/data-quality.yaml` holds all the content: page text, columns, colour kinds, datasets, papers and links.
+- `data/` holds the content, one YAML file per map:
+  - `data-quality.yaml`: data-cleaning benchmarks (ADR, Raha, Baran, HoloClean, …).
+  - `fair-data-quality.yaml`: extends `data-quality.yaml` with demodq (TKDE 2024) and its five datasets.
+  - `face-image-datasets.yaml`: the face-dataset lineage map from the face-image-datasets repo.
 - `template/lineage.html` is the generic renderer: styles, layout and interactions, with no map content.
-- `build.py` validates the YAML and writes the self-contained page.
-- `data-quality-lineage.html` is the built page. It's committed so it can be opened or published as is. Don't edit it by hand.
+- `build.py` validates a YAML file and writes a self-contained page.
+- `data-quality-lineage.html` and `fair-data-quality-lineage.html` are the built pages. They're committed so they can be opened or published as is. Don't edit them by hand.
 
-## Editing
+## Building
 
-Edit `data/data-quality.yaml`, then rebuild (requires PyYAML: `pip install pyyaml`):
+Requires PyYAML (`pip install pyyaml`).
 
 ```
 python build.py data/data-quality.yaml data-quality-lineage.html
-python build.py data/data-quality.yaml --check     # validate only
+python build.py data/fair-data-quality.yaml fair-data-quality-lineage.html
+python build.py data/face-image-datasets.yaml ../face-image-datasets/face-dataset-lineage.html
+python build.py data/<file>.yaml --check      # validate only
 ```
 
 The build stops with an error for:
@@ -54,38 +59,64 @@ The build stops with an error for:
 - links to unknown boxes or datasets
 - a link whose `to` is a dataset rather than a paper
 - columns out of range
-- unknown kinds or colours
+- unknown kinds, statuses, link types or colours
 
 It warns about:
-- boxes that overlap in a column
+- boxes that overlap
 - links that don't run left to right
+- undeclared attributes
 - datasets no link uses
 
-The YAML has these parts:
+## Extending another map
 
-- **`datasets`** is the left column, one entry per original dataset, in display order; each entry's position is its row. Fields:
+A file can start with `extends: other.yaml` (a path relative to the file):
+- Entries in `datasets`, `papers` or `nodes` whose `id` already exists patch the base entry field by field. New ids are appended.
+- `links` are appended.
+- `kinds`, `statuses`, `link_types`, `layout` and `links_legend` are merged.
+- Other keys, such as `title` or `footer`, replace the base value.
+
+`fair-data-quality.yaml` uses this: it adds 4 datasets, 2 papers and 7 links, patches `adult` and `cleanml`, and replaces the footer.
+
+## The YAML schema
+
+**Boxes**
+- **`datasets`** (optional) are the traced left column, one entry per original dataset, in display order; each entry's position is its row. Fields:
   - `id`: the key used in links.
   - `name`: the bold label.
   - `source`: the subtitle.
   - `source_full`, `kind`, `url`.
   - Panel fields: `title` (if different from `name`), `aka`, `real`, `path`, `sizes`, `get`, `note`.
 
-  Each dataset gets a "Trace a dataset" pill automatically.
-- **`papers`** are all the other boxes. Fields:
-  - `id`, `name`, `subtitle`, `full`, `url`, `note`.
-  - `column`: an index into `columns`, at least 1.
-  - `row`: may be fractional.
-  - `created`: a list of datasets introduced by that paper.
-- **`links`** run from the data source to the paper that used it. Fields:
+  Each dataset gets a "Trace a dataset" pill. Without `datasets`, the pills and the dataset table are hidden.
+- **`papers`** / **`nodes`** are all other boxes; both lists work the same way. Fields:
+  - `id`, `name`, `subtitle`, `full`, `kind` (default `paper`).
+  - `column`: an index into `columns`.
+  - `row` (may be fractional), or `y` in px, and optionally `x` in px.
+  - `note`.
+  - `created`: datasets introduced by that paper.
+  - `status`: a key of `statuses`.
+  - `attrs`: values for `node_fields`.
+  - `url`, or `refs`: a list of `{label, short, url}`. `label` is shown in the panel, `short` in the table.
+
+**Links**
+- **`links`** run from the data source to the box that used it. Fields:
   - `from`, `to`.
   - `label`: shown on the line.
-  - `datasets`: the keys this link carries; these drive the tracing.
-  - `how`: `paper` (stated in the citing paper) or `inferred` (drawn dashed).
-  - `note`: the citing paper's own description, shown on hover.
+  - `datasets`: the keys this link carries. Required when the map has `datasets`; they drive the tracing.
+  - `how`: a key of `link_types`; the default types are `paper` and `inferred`.
+  - `note`: shown on hover.
   - Optional: `label_pos` (0–1 along the line), `label_dy` and `offset`.
-- **`kinds`** sets the colour categories: `label`, `legend`, and `color`, one of `series-1`–`series-4` or `neutral`. The legend shows only the kinds that are used.
-- **`title`**, **`intro`**, **`panel_hint`**, **`footer`** and **`links_legend`** set the page text. `intro`, `panel_hint` and `footer` may contain simple HTML.
 
-Columns are 220 px apart, with extra room after the first column. Rows are 58 px apart. The colours are CSS variables at the top of the template, with a separate dark-mode set.
+**Styling and page text**
+- **`kinds`** sets the colour categories: `label`, `legend`, and `color`, one of `series-1`–`series-4` or `neutral`. The legend shows only the kinds that are used.
+- **`link_types`** (optional) sets the line styles. Each type has a `legend` and may have `dashed`, `tag` (shown after names, e.g. "(partly)") and `label` (text drawn on every line of that type). The default is `paper` (solid) and `inferred` (dashed, tag "inferred").
+- **`statuses`** (optional) maps a status to a `badge` (e.g. ⊘), `dashed` (dashed border) and `legend`.
+- **`node_fields`** (optional) lists the attributes shown in the panel: `key` and `label`.
+- **`node_table`** (optional) sets the columns of the box table. Each column has `col` (`name`, `kind`, `status`, `field` with `key`, `from`, `to`, or `links`) and `label`. **`node_table_title`** sets its heading.
+- **`lanes`** (optional) are horizontal family bands: `label`, `y`, `h`, `label_y`. They replace the vertical column bands, and column labels aren't drawn.
+- **`panel: lineage`** shows a provenance chain, "Built from" and all downstream boxes, for maps where every box is a dataset. The default panel lists the datasets each box took and supplied.
+- **`labels: always`** shows line labels without tracing.
+- **`layout`** (colours are CSS variables at the top of the template, with a dark-mode set) may set `node_width`, `node_height`, `top`, `row_height`, `first_x`, `first_gap`, `col_gap`, `min_curve`, `width` and `height` (px).
+- **`title`**, **`page_title`**, **`intro`**, **`svg_title`**, **`panel_hint`**, **`footer`** and **`links_legend`** set the page text. `intro`, `panel_hint` and `footer` may contain simple HTML.
 
 Sources: the full text of each paper on the map (including the published TKDE 2024 version of demodq), REIN (arXiv 2302.04702), CleanML (arXiv 1904.09483) and its DatasetDescriptions.pdf, and the BigDaMa/raha GitHub repository, read in November 2026. Download links come from the papers and were not re-checked.

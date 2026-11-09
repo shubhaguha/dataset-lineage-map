@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+<style>
+.viz-root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #8a5cc7;
+  --neutral: #898781;
+  --band: rgba(11,11,11,0.025);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #9d75d6;
+    --band: rgba(255,255,255,0.03);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.viz-root { background: var(--page); color: var(--text-primary); min-height: 100vh; padding: 28px 28px 72px; }
+header { max-width: 1500px; margin: 0 auto 14px; }
+h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+.lede { color: var(--text-secondary); font-size: 14.5px; line-height: 1.5; max-width: 900px; margin: 0; }
+.lede b { color: var(--text-primary); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 14px 0 0; font-size: 12.5px; color: var(--text-secondary); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; display: inline-block; }
+.ln { width: 26px; height: 0; border-top: 1.75px solid var(--muted); display: inline-block; }
+.ln.dash { border-top-style: dashed; }
+.tracer { max-width: 1500px; margin: 0 auto 14px; padding: 14px 16px 12px; }
+.tracer-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
+.tracer-head h2 { font-size: 17px; font-weight: 600; margin: 0; }
+.tracer-hint { font-size: 12.5px; color: var(--text-secondary); }
+.chips { display: flex; flex-wrap: wrap; gap: 7px 8px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 12px; font-size: 12.5px; }
+.toolbar { max-width: 1500px; margin: 0 auto 12px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: 12.5px; }
+.toolbar .lbl { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; font-weight: 600; margin-right: 4px; }
+.dchip { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 13px 7px 10px; border-radius: 999px; border: 1.5px solid var(--axis); background: var(--surface-1); color: var(--text-primary); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.dchip i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.dchip:hover { border-color: var(--axis); }
+.dchip[aria-pressed="true"] { background: var(--text-primary); color: var(--page); border-color: var(--text-primary); }
+.dchip .ct { color: var(--muted); font-size: 11.5px; font-weight: 500; }
+.dchip[aria-pressed="true"] .ct { color: var(--axis); }
+.toggle { display: inline-flex; gap: 6px; align-items: center; color: var(--text-secondary); cursor: pointer; user-select: none; }
+.layout { max-width: 1500px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 1050px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.chart { padding: 10px; overflow: hidden; }
+svg { display: block; width: 100%; height: auto; }
+.lane-band { fill: var(--band); }
+.lane-label { font-size: 11px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.edge { fill: none; stroke: var(--muted); stroke-width: 1.5; transition: opacity .15s, stroke .15s; }
+.edge.dashed { stroke-dasharray: 5 4; }
+.node.dashed rect.body { stroke-dasharray: 6 4; }
+.box-dash { width: 18px; height: 12px; border: 1.75px dashed var(--text-secondary); border-radius: 3px; display: inline-block; }
+.chain { font-size: 13px; line-height: 1.6; }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 9; cursor: help; }
+.edge-label { font-size: 10.5px; fill: var(--text-primary); paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; opacity: 0; transition: opacity .15s; }
+svg.alllabels .edge-label { opacity: 1; }
+svg.focusing .edge-label.on { opacity: 1; }
+svg.focusing.alllabels .edge-label.dim { opacity: 0.12; }
+.node { cursor: pointer; transition: opacity .15s; outline: none; }
+.node rect.body { stroke-width: 2; }
+.node .name { font-size: 12.5px; font-weight: 600; fill: var(--text-primary); }
+.node .sub { font-size: 10.5px; fill: var(--text-secondary); }
+.node .hit { fill: transparent; }
+.node.dsnode .name { font-size: 13.5px; }
+.node:focus-visible rect.body, .node.pinned rect.body { stroke-width: 3; }
+svg.focusing .node.dim, svg.focusing .edge.dim { opacity: 0.12; }
+svg.focusing .edge.on { stroke-width: 2.3; stroke: var(--text-secondary); }
+.panel { padding: 18px 18px 16px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
+.panel .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin: 14px 0 4px; }
+.panel h2 { font-size: 19px; margin: 0 0 2px; font-weight: 600; }
+.panel .full { color: var(--text-secondary); font-size: 12.5px; margin: 0 0 8px; line-height: 1.4; }
+.panel p { margin: 0; font-size: 13px; line-height: 1.45; }
+.panel ul { margin: 0; padding-left: 16px; font-size: 13px; line-height: 1.45; }
+.panel li { margin-bottom: 5px; }
+.panel li .from { color: var(--text-secondary); }
+.panel .ds { font-weight: 600; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); margin: 2px 4px 2px 0; color: var(--text-primary); }
+.chip i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.links { margin-top: 14px; display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.links a, .panel a { color: var(--series-1); text-decoration: none; font-weight: 600; }
+.links a:hover, .panel a:hover { text-decoration: underline; }
+.hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+details.table { max-width: 1500px; margin: 18px auto 0; padding: 12px 16px; }
+details.table summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+td a { color: var(--series-1); }
+td.sz { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.foot { max-width: 1500px; margin: 14px auto 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+@media print {
+  .viz-root { padding: 10mm; min-height: 0; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .panel, .toolbar { display: none; }
+  details.table { break-before: page; }
+  details.table > *:not(summary) { display: block; }
+  @page { size: A4 landscape; margin: 8mm; }
+}
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <header>
+    <h1 id="title"></h1>
+    <p class="lede" id="lede"></p>
+    <div class="legend" id="legend" aria-label="Legend"></div>
+  </header>
+
+  <section class="card tracer" id="tracer" aria-label="Trace a dataset">
+    <div class="tracer-head"><h2>Trace a dataset</h2><span class="tracer-hint">Pick one to follow it from its origin through every paper that used it. The boxes in the left column of the map do the same. The number is how many links carry it.</span></div>
+    <div class="chips" id="chips"></div>
+    <div class="opts">
+      <label class="toggle"><input type="checkbox" id="labelToggle"> Show all line labels</label>
+    </div>
+  </section>
+
+  <div class="layout">
+    <div class="card chart"><svg id="viz" role="img" aria-labelledby="vizTitle"><title id="vizTitle"></title></svg></div>
+    <aside class="card panel" id="panel" aria-live="polite">
+      <p class="hint" id="hint"></p>
+    </aside>
+  </div>
+
+  <details class="card table" id="dtable" open>
+    <summary>Dataset table</summary>
+    <table id="dtbl"><thead><tr><th>Dataset</th><th>Original source</th><th>Real or synthetic</th><th>Path to recent benchmarks</th><th>Sizes as reported</th><th>Where to get it</th></tr></thead><tbody></tbody></table>
+  </details>
+  <details class="card table">
+    <summary id="ntitle"></summary>
+    <table id="ntbl"><thead></thead><tbody></tbody></table>
+  </details>
+  <p class="foot" id="foot"></p>
+</div>
+
+<script id="lineage-data" type="application/json">{"page_title":"Data Quality Benchmark Lineage Map","title":"Where data-cleaning benchmark datasets come from","intro":"Each line runs from where a paper says it got a dataset to the paper that used it, labelled with the dataset name. Recent benchmarks such as <b>Automatic Data Repair (VLDB 2024)<\/b> use the same handful of tables, which reach them through two or three papers. <b>Hospital<\/b> started as 100K rows from Hospital Compare, was cut to 1,000 rows by HoloClean, and every later paper reuses that sample. <b>Tax<\/b> is synthetic, generated by BART from a 2008 scenario by Fan et al. <b>IT<\/b>, <b>Rayyan<\/b> and probably <b>Address<\/b> are organisation-provided tables first described in <b>Detecting data errors (VLDB 2016)<\/b>. Pick a dataset below, or a box in the left column, to follow it through every paper. Hover over or tap a paper to see what it took and passed on.","svg_title":"Lineage graph of data-cleaning benchmark datasets, from original sources (left) to the papers that use them (right), by year","panel_hint":"Select a paper or source to see which datasets it used, where each came from and who reused them. Pick a dataset chip above to follow one table through every paper.<br><br>Hover over a line to see the citing paper's own description of that dataset.","footer":"Sources: the dataset sections and references of each paper on the map, read in full (ADR, Raha, Baran, HoloClean, BART, Detecting data errors, Holistic, NADEEF, Truth finding, REIN, CleanML, demodq TKDE 2024), CleanML's dataset descriptions and the BigDaMa/raha GitHub repository (November 2026). Dashed links are inferences, not claims made by the authors. Download links come from the papers and were not re-checked.","links_legend":{"paper":"Source stated in the citing paper","inferred":"Inferred (matching table shapes)"},"columns":["Original data","2013","2015–2016","2017","2019–2023","2024"],"kinds":{"paper":{"label":"Paper","legend":"Paper (system or benchmark)","color":"series-1"},"open":{"label":"Public source","legend":"Public source (open data portal, web, repository)","color":"series-3"},"org":{"label":"Organisation-provided / proprietary","legend":"Organisation-provided or proprietary","color":"series-2"},"synth":{"label":"Synthetic scenario","legend":"Synthetic scenario","color":"series-4"},"unk":{"label":"Origin not traced","legend":"Origin not traced","color":"neutral"}},"datasets":[{"id":"flights","name":"Flights","source":"38 flight-status sites","source_full":"3 airline, 8 airport and 27 third-party websites (e.g. Orbitz, Travelocity), crawled Dec 2011","kind":"open","url":"http://lunadong.com/fusionDataSets.htm","aka":"Flight","real":"Real conflicts between sources","path":"Websites → Truth finding → HoloClean → Raha, Baran → ADR (Baran also cites Truth finding directly)","sizes":"Truth finding 1,200 flights × 38 sources · HoloClean 2,377×6 · Raha/Baran/ADR 2,376×7, 30%","get":"lunadong.com/fusionDataSets.htm; BigDaMa/raha repo (flights)"},{"id":"food","name":"Food","source":"Chicago Data Portal","source_full":"City of Chicago open data: food inspections","kind":"open","url":"https://data.cityofchicago.org/","real":"Real; transcribed inspector forms","path":"Chicago Data Portal → HoloClean","sizes":"HoloClean 339,908×17","get":"data.cityofchicago.org"},{"id":"physicians","name":"Physicians","source":"Medicare Physician Compare","source_full":"Medicare.gov Physician Compare National dataset","kind":"open","url":"https://data.medicare.gov/data/physician-compare","real":"Real","path":"Medicare.gov → HoloClean","sizes":"HoloClean 2,071,849×18","get":"data.medicare.gov"},{"id":"hospital","name":"Hospital","source":"US HHS Hospital Compare","source_full":"US Dept. of Health & Human Services, hospitalcompare.hhs.gov","kind":"open","url":"https://www.hospitalcompare.hhs.gov/","aka":"HOSP","real":"Real data, injected errors","path":"Hospital Compare → Holistic / NADEEF → HoloClean (1,000-row sample) → Raha, Baran → ADR","sizes":"Holistic 100K×19 · NADEEF 100K · HoloClean 1,000×19, ~5% errors · Raha/Baran/ADR 1,000×20, 3%","get":"BigDaMa/raha repo (hospital)","note":"Holistic and Baran say the errors were introduced artificially. Baran calls them \"scarce and randomly imposed\"."},{"id":"zip","name":"US ZIP codes","source":"databases.about.com","source_full":"Zip code table from databases.about.com, master data for HOSP","kind":"open","url":"http://databases.about.com/od/access/a/zipcodedatabase.htm","real":"Real master data","path":"ZIP table → NADEEF (to accompany HOSP)","sizes":"43K×2 (zip, state)","get":"Original page likely gone"},{"id":"bus","name":"Bus","source":"data.gov.uk, 8 tables","source_full":"UK government public datasets, 8 tables joined","kind":"open","url":"https://www.data.gov.uk/data","aka":"BUS","real":"Real","path":"data.gov.uk → NADEEF → BART","sizes":"NADEEF 160K, 16 attributes in rules · BART 250K","get":"data.gov.uk"},{"id":"client","name":"CLIENT","source":"Bertossi et al. 2005","source_full":"Bertossi et al., Complexity and approximation of fixing numerical attributes in databases under integrity constraints (DBPL 2005)","kind":"synth","real":"Not checked","path":"Bertossi et al. → Holistic","sizes":"100K tuples, 6 attributes, 2 relations","get":"da.qcri.org/hc/data.zip (per Holistic)"},{"id":"tax","name":"Tax","source":"Fan et al. 2008 scenario","source_full":"Fan, Geerts, Jia, Kementsietsidis, Conditional Functional Dependencies for Capturing Data Inconsistencies (ACM TODS 33, 2008)","kind":"synth","real":"Synthetic","path":"Fan et al. 2008 → BART (generator) → Raha, Baran, ADR","sizes":"BART 100K–1M · Raha/Baran/ADR 200,000×15, 4% (ADR also uses a 10K subset)","get":"BART repository; BigDaMa/raha repo (tax)"},{"id":"customers","name":"Customers","source":"Geerts et al. 2014","source_full":"Geerts, Mecca, Papotti, Santoro, Mapping and Cleaning (ICDE 2014), the LLUNATIC project","kind":"synth","real":"Synthetic","path":"Geerts et al. → BART","sizes":"BART 100K–1M","get":"BART repository"},{"id":"rayyan","name":"Rayyan","source":"Rayyan app (QCRI)","source_full":"Rayyan: a web and mobile app for systematic reviews (Systematic Reviews 2016); data from its reference database","kind":"org","url":"https://doi.org/10.1186/s13643-016-0384-4","aka":"Rayyan Bib","real":"Real, cleaned by the owners","path":"Rayyan → Detecting data errors (Rayyan Bib) → Raha, Baran → ADR (ADR cites Raha)","sizes":"DDE: 1M rows×11, 1K-row partial ground truth, 35% errors · Raha/Baran/ADR 1,000×11, 9%","get":"BigDaMa/raha repo (rayyan)","note":"Raha and Baran cite the Rayyan app paper. The 1,000-row, 11-column table matches DDE's ground-truth sample of Rayyan Bib (inferred). The error rates differ (35% vs 9%)."},{"id":"beers","name":"Beers","source":"Kaggle Craft Beers","source_full":"Jean-Nicholas Hould, Craft Beers Dataset, Kaggle 2017 (v1)","kind":"open","url":"https://www.kaggle.com/datasets/nickhould/craft-cans","aka":"Craft Beers","real":"Real, cleaned by the dataset owner","path":"Kaggle → Raha, Baran → ADR (ADR cites Baran)","sizes":"2,410×11, 16%","get":"Kaggle; BigDaMa/raha repo (beers)"},{"id":"movies","name":"Movies","source":"Magellan repository","source_full":"The Magellan Data Repository (Das et al. 2015), AnHai Doan's group","kind":"open","url":"https://sites.google.com/site/anhaidgroup/projects/data","aka":"movies_1","real":"Real; ground truth from duplicate labels","path":"Magellan → Raha","sizes":"Raha 7,390×17, 6%","get":"Magellan repository; BigDaMa/raha repo (movies_1)"},{"id":"mitvpf","name":"MIT VPF","source":"MIT procurement records","source_full":"MIT Office of the Vice President for Finance: vendor master data","kind":"org","real":"Real, owner-curated ground truth","path":"MIT → Detecting data errors (not reused downstream)","sizes":"DDE 24K×42, 13,603-record partial ground truth, 6.7%","get":"Not public"},{"id":"it","name":"IT","source":"Merck IT department","source_full":"Merck: IT services and software systems within the company","kind":"org","aka":"Merck","real":"Real, cleaned by the owners","path":"Merck → Detecting data errors → Raha, Baran","sizes":"DDE 2,262×61, 19.7% · Raha 2,262×61, 20%","get":"Not in the public Raha repo","note":"Raha cites DDE for IT. Same row count, columns and error rate as DDE's Merck dataset."},{"id":"address","name":"BlackOak (Address?)","source":"BlackOak Analytics","source_full":"Anonymized address data from an entity-resolution company","kind":"org","title":"Address / BlackOak","aka":"BlackOak","real":"Real, proprietary","path":"BlackOak → Detecting data errors; probably also → Raha, Baran as \"Address\"","sizes":"DDE BlackOak 94K×12, 34% · Raha Address 94,306×12, 14%","get":"Not public","note":"Raha and Baran only say Address is \"proprietary\". The shape matches DDE's BlackOak address data, but the error rates differ, so the Raha/Baran links are an inference."},{"id":"animal","name":"Animal","source":"UC Berkeley field records","source_full":"Small-vertebrate capture records from a study of firewood cutting, 1993–2012","kind":"org","real":"Real, owner ground truth","path":"UC Berkeley → Detecting data errors (not reused downstream)","sizes":"DDE 60K×14, 0.1%","get":"Not public"},{"id":"adult","name":"Adult","source":"Kohavi 1996 (UCI census)","source_full":"Kohavi, Scaling up the accuracy of naive-Bayes classifiers: a decision-tree hybrid (KDD 1996)","kind":"open","aka":"Census income","real":"Real; REIN lists rule violations and outliers","path":"Kohavi 1996 (UCI) → REIN → ADR (clustering and kNN); UCI → demodq (TKDE)","sizes":"REIN 45,223×15, error rate 0.58 · TKDE 48,844 tuples, sensitive: sex, race","get":"UCI / Kaggle (adult-census-income)","note":"ADR picked its ML datasets \"following previous related works\", citing REIN, CleanML and two others. The REIN → ADR link is therefore an inference."},{"id":"airfoil","name":"Airfoil","source":"NASA, UCI repository","source_full":"Brooks, Pope, Marcolini, NASA Airfoil Self-Noise dataset (UCI)","kind":"open","url":"https://archive.ics.uci.edu/dataset/291/airfoil+self+noise","aka":"NASA Airfoil Self-Noise","real":"Real; REIN lists missing values and outliers","path":"NASA / UCI → REIN → ADR (regression)","sizes":"REIN 1,504×6, error rate 0.08","get":"UCI dataset 291"},{"id":"printer","name":"3D Printer","source":"Kaggle (Okudan 2019)","source_full":"Ahmet Okudan, 3D Printer Dataset for Mechanical Engineers, Kaggle 2019","kind":"open","url":"https://www.kaggle.com/afumetto/3dprinter","aka":"Printer","real":"Real; REIN lists duplicates and (implicit) missing values","path":"Kaggle → REIN → ADR (regression)","sizes":"REIN 50×12, error rate 0.05","get":"kaggle.com/afumetto/3dprinter"},{"id":"titanic","name":"Titanic","source":"Kaggle","source_full":"Titanic: Machine Learning from Disaster (Kaggle), as cited by CleanML","kind":"open","url":"https://www.kaggle.com/upendr/titanic-machine-learning-from-disaster/data","real":"Real; many missing values","path":"Kaggle → CleanML → ADR (classification)","sizes":"CleanML 891×11","get":"Kaggle (Titanic: Machine Learning from Disaster)","note":"The CleanML → ADR link is an inference: ADR cites CleanML among the works it followed."},{"id":"restaurant","name":"Restaurant","source":"Magellan: Yelp + Yellowpages","source_full":"Restaurant data merged from Yelp and Yellowpages, from the Magellan repository (as cited by CleanML)","kind":"open","url":"https://sites.google.com/site/anhaidgroup/useful-stuff/data","aka":"Restaurants","real":"Real; duplicates and inconsistent names/categories","path":"Magellan (Yelp + Yellowpages) → CleanML → ADR (classification)","sizes":"CleanML 12,007×10","get":"Magellan repository","note":"Same Magellan repository as Movies, different table. The CleanML → ADR link is an inference."},{"id":"bank","name":"Bank","source":"Source not traced","source_full":"ADR does not say where Bank comes from, and it is not in REIN or CleanML","kind":"unk","real":"Errors injected by ADR","path":"? → ADR (kNN)","sizes":"Not reported in ADR","get":"Not traced","note":"ADR gives no source and Bank is in neither REIN nor CleanML. ADR also cites Czarnowski 2012 and Li et al. 2014 for its ML datasets; those weren't checked."},{"id":"dress","name":"Dress","source":"Source not traced","source_full":"ADR does not say where Dress comes from, and it is not in REIN or CleanML","kind":"unk","real":"Errors injected by ADR","path":"? → ADR (clustering)","sizes":"Not reported in ADR","get":"Not traced","note":"ADR gives no source and Dress is in neither REIN nor CleanML. ADR also cites Czarnowski 2012 and Li et al. 2014; those weren't checked."},{"id":"folk","name":"Folk (ACS)","source":"US Census ACS microdata","source_full":"US Census Bureau American Community Survey data, as packaged by folktables (Ding et al. 2021)","kind":"open","url":"https://github.com/zykls/folktables","aka":"folktables","real":"Real US census microdata","path":"US Census ACS → folktables (Retiring Adult, 2021) → demodq (TKDE)","sizes":"TKDE 378,817 tuples (California, 2018), sensitive: sex, race","get":"github.com/zykls/folktables","note":"TKDE uses the California 2018 subset and replicates the Adult income task, following Ding et al., who proposed it as a replacement for Adult."},{"id":"credit","name":"Credit","source":"Kaggle Give Me Some Credit","source_full":"Kaggle competition \"Give Me Some Credit\" (credit distress prediction)","kind":"open","url":"https://www.kaggle.com/c/GiveMeSomeCredit","aka":"Give Me Some Credit","real":"Real","path":"Kaggle → CleanML; Kaggle → demodq (TKDE)","sizes":"CleanML 150,000×10 · TKDE 150,000 tuples, sensitive: age","get":"kaggle.com/c/GiveMeSomeCredit","note":"CleanML and TKDE cite the same Kaggle competition data. TKDE builds on the CleanML code but cites Kaggle for the data."},{"id":"german","name":"German credit","source":"UCI Statlog","source_full":"Statlog (German Credit Data), UCI Machine Learning Repository","kind":"open","url":"https://archive.ics.uci.edu/ml/datasets/statlog+(german+credit+data)","aka":"Statlog","real":"Real","path":"UCI → demodq (TKDE)","sizes":"TKDE 1,000 tuples, sensitive: age, sex","get":"UCI Statlog (German Credit Data)","note":"TKDE drops foreign_worker, whose documented semantics are probably wrong. It derives sex from personal_status."},{"id":"heart","name":"Heart","source":"Kaggle cardiovascular disease","source_full":"Cardiovascular Disease dataset (Kaggle, sulianova): patient measurements and presence of heart disease","kind":"open","url":"https://www.kaggle.com/datasets/sulianova/cardiovascular-disease-dataset","aka":"Cardiovascular disease","real":"Real patient measurements","path":"Kaggle → demodq (TKDE)","sizes":"TKDE 70,000 tuples, sensitive: sex, age","get":"kaggle.com/datasets/sulianova/cardiovascular-disease-dataset"}],"papers":[{"id":"truth","name":"Truth finding","subtitle":"VLDB 2013","full":"Truth finding on the deep web: is the problem solved? (Li, Dong, Lyons, Meng, Srivastava), PVLDB 6(2) 2013","column":1,"row":0.0,"url":"https://doi.org/10.14778/2535568.2448943","created":["Stock: 55 sources, July 2011 (not used downstream on this map)"]},{"id":"holistic","name":"Holistic","subtitle":"ICDE 2013","full":"Holistic data cleaning: putting violations into context (Chu, Ilyas, Papotti), ICDE 2013","column":1,"row":3.345,"url":"https://doi.org/10.1109/ICDE.2013.6544847","note":"Errors were injected into all three datasets at a set rate. Datasets: da.qcri.org/hc/data.zip (per the paper).","created":["EMP: synthetic, follows the paper's running example; up to 100K tuples, 17 attributes, 2 relations"]},{"id":"nadeef","name":"NADEEF","subtitle":"SIGMOD 2013","full":"NADEEF: a commodity data cleaning system (Dallachiesa et al.), SIGMOD 2013","column":1,"row":4.517,"url":"https://doi.org/10.1145/2463676.2465327"},{"id":"bart","name":"BART","subtitle":"VLDB 2015 · error generator","full":"Messing up with BART: error generation for evaluating data-cleaning algorithms (Arocena et al.), PVLDB 9(2) 2015","column":2,"row":7.517,"url":"https://doi.org/10.14778/2850578.2850579","note":"BART injects errors into clean data. Its repository (db.unibas.it/projects/bart) is the source Raha and Baran cite for Tax.","created":["Employees: the paper's running example, synthetic, 100K–1M tuples"]},{"id":"dde","name":"Detecting data errors","subtitle":"VLDB 2016 · 5 real datasets","full":"Detecting data errors: where are we and what needs to be done? (Abedjan et al.), PVLDB 9(12) 2016","column":2,"row":12.345,"url":"https://doi.org/10.14778/2994509.2994518","note":"All five datasets have real errors and ground truth from the data owners. Only Merck and Rayyan Bib (and, if the inference holds, BlackOak) reached later benchmarks."},{"id":"holoclean","name":"HoloClean","subtitle":"VLDB 2017","full":"HoloClean: holistic data repairs with probabilistic inference (Rekatsinas, Chu, Ilyas, Ré), PVLDB 10(11) 2017","column":3,"row":4.0,"url":"https://doi.org/10.14778/3137628.3137631"},{"id":"raha","name":"Raha","subtitle":"SIGMOD 2019 · 8 datasets","full":"Raha: a configuration-free error detection system (Mahdavi et al.), SIGMOD 2019","column":4,"row":8.0,"url":"https://doi.org/10.1145/3299869.3324956","note":"The BigDaMa/raha GitHub repo distributes beers, flights, hospital, movies_1, rayyan and tax with dirty and clean versions. IT and Address are not in it."},{"id":"baran","name":"Baran","subtitle":"VLDB 2020 · 7 datasets","full":"Baran: effective error correction via a unified context representation and transfer learning (Mahdavi & Abedjan), PVLDB 13(12) 2020","column":4,"row":11.345,"url":"https://doi.org/10.14778/3407790.3407801"},{"id":"rein","name":"REIN","subtitle":"EDBT 2023 · 14 datasets","full":"REIN: a comprehensive benchmark framework for data cleaning methods in ML pipelines (Abdelaal, Hammacher, Schöning), EDBT 2023","column":4,"row":17.0,"url":"https://arxiv.org/abs/2302.04702","note":"Only the 3 datasets that reach ADR are drawn. REIN also uses Hospital, Beers, Flights and others not traced here."},{"id":"cleanml","name":"CleanML","subtitle":"ICDE 2021 · 14 datasets","full":"CleanML: a study for evaluating the impact of data cleaning on ML classification tasks (Li et al.), ICDE 2021","column":4,"row":19.5,"url":"https://arxiv.org/abs/1904.09483","note":"Only Titanic, Restaurant and Credit are drawn. CleanML's other datasets (e.g. Airbnb, USCensus, Movie) aren't traced here. Dataset sources: github.com/chu-data-lab/CleanML, DatasetDescriptions.pdf."},{"id":"adr","name":"Automatic Data Repair","subtitle":"VLDB 2024 · 12 datasets","full":"Automatic data repair: are we ready to deploy? (Ni et al.), PVLDB 17(10) 2024","column":5,"row":13.0,"url":"https://doi.org/10.14778/3675034.3675051","note":"5 datasets with real errors for repair quality, plus 7 ML task datasets (Titanic, Restaurant, Airfoil, 3D Printer, Adult, Dress, Bank). For those, ADR treats the original data as clean and injects errors at 10–90%."},{"id":"retadult","name":"Retiring Adult","subtitle":"NeurIPS 2021 · folktables","full":"Retiring Adult: new datasets for fair machine learning (Ding, Hardt, Miller, Schmidt), NeurIPS 2021: introduces the folktables package","column":4,"row":23.0,"url":"https://github.com/zykls/folktables","note":"Proposes retiring UCI Adult and replacing it with ACS census tasks through the folktables package. Only the path to TKDE is drawn."},{"id":"tkde","name":"demodq (TKDE)","subtitle":"TKDE 2024 · 5 datasets","full":"Automated data cleaning can hurt fairness in machine learning-based decision making (Guha, Khan, Stoyanovich, Schelter), IEEE TKDE 36(12) 2024; extends the ICDE 2023 paper","column":5,"row":24.172,"url":"https://doi.org/10.1109/TKDE.2024.3365524","note":"Extends the CleanML benchmark code with fairness metrics, but cites each dataset from its public source. There is no clean ground truth: missing values, outliers and label errors are flagged by automated detectors and then auto-repaired. Sensitive attributes follow prior fairness work."}],"links":[{"from":"hospital","to":"holistic","label":"HOSP","datasets":["hospital"],"how":"paper","note":"\"HOSP, is from US Department of Health & Human Services\": 100K tuples, 19 attributes, 9 FDs."},{"from":"hospital","to":"nadeef","label":"HOSP","datasets":["hospital"],"how":"paper","note":"\"hosp data was taken from us Department of Health & Human Services\": 100K records.","label_pos":0.35},{"from":"zip","to":"nadeef","label":"ZIP codes","datasets":["zip"],"how":"paper","note":"A 43K-tuple US zip-code table (zip, state) downloaded to accompany hosp.","label_pos":0.42},{"from":"bus","to":"nadeef","label":"BUS","datasets":["bus"],"how":"paper","note":"bus: one table built by joining 8 tables from UK government public datasets; 160K tuples.","label_pos":0.5,"label_dy":2},{"from":"client","to":"holistic","label":"CLIENT","datasets":["client"],"how":"paper","note":"\"CLIENT [4]\": 100K tuples, 6 attributes over 2 relations, 2 DCs on numerical values.","label_pos":0.75},{"from":"flights","to":"truth","label":"Flight","datasets":["flights"],"how":"paper","note":"38 sources, Dec 2011, 1,200 flights; queried with \"flight status\"."},{"from":"tax","to":"bart","label":"Tax","datasets":["tax"],"how":"paper","note":"\"Tax is a synthetic scenario from Fan et al. [13]\"."},{"from":"customers","to":"bart","label":"Customers","datasets":["customers"],"how":"paper","note":"\"Customers is a synthetic scenario from Geerts et al. [16]\"."},{"from":"nadeef","to":"bart","label":"Bus, Hospital","datasets":["bus","hospital"],"how":"paper","note":"\"Bus is a real-world scenario from Dallachiesa et al.\" (NADEEF). Hospital is \"used in several data repairing papers\", citing NADEEF, Fan et al. 2010 and Geerts et al. 2014.","label_pos":0.45},{"from":"food","to":"holoclean","label":"Food","datasets":["food"],"how":"paper","note":"Food establishments in Chicago, transcribed from inspector forms; 339,908 tuples.","label_pos":0.62},{"from":"physicians","to":"holoclean","label":"Physicians","datasets":["physicians"],"how":"paper","note":"\"the Physician Compare National dataset published in Medicare.gov\"; 2.07M tuples.","label_pos":0.62},{"from":"holistic","to":"holoclean","label":"Hospital","datasets":["hospital"],"how":"paper","note":"\"a typical benchmark dataset used in the data cleaning literature [12, 14]\" (Holistic, NADEEF). HoloClean uses 1,000 tuples.","label_pos":0.55,"label_dy":-2},{"from":"nadeef","to":"holoclean","label":"Hospital","datasets":["hospital"],"how":"paper","note":"Cited together with Holistic as the source of Hospital.","label_pos":0.55,"label_dy":4},{"from":"truth","to":"holoclean","label":"Flights","datasets":["flights"],"how":"paper","note":"\"This dataset [30] contains information on the departure and arrival time of flights as reported by different data sources on the web.\"","label_pos":0.5},{"from":"rayyan","to":"dde","label":"Rayyan Bib","datasets":["rayyan"],"how":"paper","note":"Rayyan Bib: 1M records, 11 columns; ground truth for a 1K sample; 35% errors.","label_pos":0.6},{"from":"mitvpf","to":"dde","label":"MIT VPF","datasets":["mitvpf"],"how":"paper","note":"Vendor master data, 24K rows, 42 columns; owner-curated ground truth for 13,603 records.","label_pos":0.6},{"from":"it","to":"dde","label":"Merck","datasets":["it"],"how":"paper","note":"IT services and software systems, 2,262 rows, 61 columns, 19.7% errors.","label_pos":0.6},{"from":"address","to":"dde","label":"BlackOak","datasets":["address"],"how":"paper","note":"Anonymized address data, 94K rows, 12 columns, 34% errors.","label_pos":0.6},{"from":"animal","to":"dde","label":"Animal","datasets":["animal"],"how":"paper","note":"Animal capture records, 60K rows, 14 columns, 0.1% errors.","label_pos":0.6},{"from":"holoclean","to":"raha","label":"Hospital, Flights","datasets":["hospital","flights"],"how":"paper","note":"\"Hospital and Flights are two real-world datasets that we have obtained along with their ground truth from a previous research project [39]\" (HoloClean).","label_pos":0.62},{"from":"bart","to":"raha","label":"Tax","datasets":["tax"],"how":"paper","note":"\"Tax is a large synthetic dataset from the BART repository [6].\"","label_pos":0.3},{"from":"rayyan","to":"raha","label":"Rayyan","datasets":["rayyan"],"how":"paper","note":"Raha cites the Rayyan app paper [33]: \"cleaned by the dataset owners themselves\".","label_pos":0.62,"label_dy":-2},{"from":"dde","to":"raha","label":"IT","datasets":["it"],"how":"paper","note":"\"Rayyan [33] and IT [1]\": [1] is Detecting data errors. IT matches DDE's Merck table (2,262×61).","label_pos":0.5},{"from":"dde","to":"raha","label":"Rayyan sample?","datasets":["rayyan"],"how":"inferred","note":"Inferred: Raha's Rayyan (1,000×11) has the shape of DDE's 1K-row ground-truth sample of Rayyan Bib.","label_pos":0.5,"label_dy":16,"offset":12},{"from":"address","to":"raha","label":"Address?","datasets":["address"],"how":"inferred","note":"Inferred: Raha says only \"Address is a proprietary dataset with ground truth\" (94,306×12). DDE's BlackOak has 94K×12, but 34% errors rather than 14%.","label_pos":0.7},{"from":"beers","to":"raha","label":"Beers","datasets":["beers"],"how":"paper","note":"\"Beers is a real-world dataset that has been collected by scraping the web and has been manually cleaned [28]\" (Kaggle Craft Beers).","label_pos":0.6},{"from":"movies","to":"raha","label":"Movies","datasets":["movies"],"how":"paper","note":"\"Movies is an available dataset in the Magellan repository [19]\"; ground truth from duplicate labels.","label_pos":0.5},{"from":"holoclean","to":"baran","label":"Hospital, Flights","datasets":["hospital","flights"],"how":"paper","note":"\"Hospital [37] and Flights [25, 37]\" ([37] HoloClean).","label_pos":0.7},{"from":"truth","to":"baran","label":"Flights","datasets":["flights"],"how":"paper","note":"Flights also cites [25], Truth finding on the deep web.","label_pos":0.35},{"from":"bart","to":"baran","label":"Tax","datasets":["tax"],"how":"paper","note":"\"Tax is a synthetic dataset from the BART repository [7].\"","label_pos":0.4},{"from":"rayyan","to":"baran","label":"Rayyan","datasets":["rayyan"],"how":"paper","note":"\"Rayyan [30]\": the Rayyan app paper.","label_pos":0.92},{"from":"dde","to":"baran","label":"IT","datasets":["it"],"how":"paper","note":"\"IT [3]\": Detecting data errors.","label_pos":0.55},{"from":"address","to":"baran","label":"Address?","datasets":["address"],"how":"inferred","note":"Inferred, as for Raha: Baran says only \"Address is a proprietary\" dataset.","label_pos":0.62,"label_dy":12},{"from":"beers","to":"baran","label":"Beers","datasets":["beers"],"how":"paper","note":"\"Beers [21]\": Kaggle Craft Beers.","label_pos":0.75},{"from":"holoclean","to":"adr","label":"Hospital, Flights","datasets":["hospital","flights"],"how":"paper","note":"\"Hospital and Flights [72]\" ([72] HoloClean).","label_pos":0.45},{"from":"bart","to":"adr","label":"Tax","datasets":["tax"],"how":"paper","note":"\"Tax is a large dataset describing tax payment records [4]\" ([4] BART). 200K×15, also a 10K subset.","label_pos":0.6,"label_dy":12},{"from":"raha","to":"adr","label":"Rayyan","datasets":["rayyan"],"how":"paper","note":"\"Rayyan is another real-world dataset cleansed by its owners [57]\" ([57] Raha).","label_pos":0.5,"label_dy":-4},{"from":"baran","to":"adr","label":"Beers","datasets":["beers"],"how":"paper","note":"\"Beers is a real-world dataset ... manually cleaned by the dataset owner [56]\" ([56] Baran).","label_pos":0.5},{"from":"adult","to":"rein","label":"Adult","datasets":["adult"],"how":"paper","note":"REIN cites Kohavi 1996 for Adult: 45,223×15.","label_pos":0.55},{"from":"airfoil","to":"rein","label":"Airfoil","datasets":["airfoil"],"how":"paper","note":"REIN cites the NASA Airfoil Self-Noise dataset (UCI): 1,504×6.","label_pos":0.75},{"from":"printer","to":"rein","label":"3D Printer","datasets":["printer"],"how":"paper","note":"REIN cites Okudan 2019 (Kaggle): 50×12.","label_pos":0.9},{"from":"titanic","to":"cleanml","label":"Titanic","datasets":["titanic"],"how":"paper","note":"CleanML cites the Kaggle Titanic data: 891×11, many missing values.","label_pos":0.55},{"from":"restaurant","to":"cleanml","label":"Restaurant","datasets":["restaurant"],"how":"paper","note":"CleanML: 12,007 records merged from Yelp and Yellowpages, from the Magellan repository.","label_pos":0.75},{"from":"rein","to":"adr","label":"Adult, Airfoil, 3D Printer","datasets":["adult","airfoil","printer"],"how":"inferred","note":"Inferred: ADR picked its ML datasets \"following previous related works [1, 20, 50, 51]\"; [1] is REIN, which contains these three.","label_pos":0.5},{"from":"cleanml","to":"adr","label":"Titanic, Restaurant","datasets":["titanic","restaurant"],"how":"inferred","note":"Inferred: [51] in the same citation is CleanML, which contains these two.","label_pos":0.5,"label_dy":12},{"from":"bank","to":"adr","label":"Bank","datasets":["bank"],"how":"paper","note":"ADR uses Bank for kNN queries; no source given.","label_pos":0.8},{"from":"dress","to":"adr","label":"Dress","datasets":["dress"],"how":"paper","note":"ADR uses Dress for clustering; no source given.","label_pos":0.8,"label_dy":12},{"from":"credit","to":"cleanml","label":"Credit","datasets":["credit"],"how":"paper","note":"CleanML cites the Kaggle Give Me Some Credit data: 150,000 records, 10 attributes.","label_pos":0.8},{"from":"folk","to":"retadult","label":"ACS","datasets":["folk"],"how":"paper","note":"folktables packages US Census American Community Survey data.","label_pos":0.6},{"from":"retadult","to":"tkde","label":"folk (CA 2018)","datasets":["folk"],"how":"paper","note":"TKDE cites folktables and Ding et al. [23]: \"based on US census data\"; California 2018 subset, 378,817 tuples.","label_pos":0.5,"label_dy":-4},{"from":"adult","to":"tkde","label":"adult","datasets":["adult"],"how":"paper","note":"TKDE cites the UCI Adult page: 48,844 tuples; sensitive attributes sex and race.","label_pos":0.85},{"from":"credit","to":"tkde","label":"credit","datasets":["credit"],"how":"paper","note":"TKDE cites Kaggle Give Me Some Credit: 150,000 tuples; sensitive attribute age.","label_pos":0.45},{"from":"german","to":"tkde","label":"german","datasets":["german"],"how":"paper","note":"TKDE cites UCI Statlog German credit: 1,000 tuples; sensitive attributes age and sex.","label_pos":0.62},{"from":"heart","to":"tkde","label":"heart","datasets":["heart"],"how":"paper","note":"TKDE cites the Kaggle cardiovascular disease dataset: 70,000 tuples; sensitive attributes sex and age.","label_pos":0.78}]}</script>
+<script>
+// ---- Generic lineage renderer. All content comes from the JSON block above (built from YAML by build.py). ----
+const DATA = JSON.parse(document.getElementById('lineage-data').textContent);
+const LAY = Object.assign({ node_width: 170, node_height: 46, top: 52, row_height: 58, first_x: 24, first_gap: 276, col_gap: 220, min_curve: 40 }, DATA.layout || {});
+const W = LAY.node_width, H = LAY.node_height, TOP = LAY.top, ROW = LAY.row_height;
+const KIND = Object.fromEntries(Object.entries(DATA.kinds).map(([k, v]) => [k, { label: v.label, legend: v.legend || v.label, v: '--' + v.color }]));
+const STATUS = DATA.statuses || {};
+const FIELDS = DATA.node_fields || [];
+const LL = DATA.links_legend || {};
+const LTYPE = DATA.link_types || { paper: { legend: LL.paper || 'Source stated in the citing paper' }, inferred: { legend: LL.inferred || 'Inferred', dashed: true, tag: 'inferred' } };
+const COLS = DATA.columns.map((label, i) => ({ label, x: LAY.first_x + (i === 0 ? 0 : LAY.first_gap + (i - 1) * LAY.col_gap) }));
+const cx = i => COLS[i].x;
+const row = i => TOP + i * ROW;
+const posY = (n, i) => n.y != null ? n.y : row(n.row != null ? n.row : i);
+const refsOf = (n, isPaper) => n.refs || (n.url ? [{ label: isPaper ? 'Paper (DOI)' : 'Source', short: isPaper ? 'DOI' : 'Source', url: n.url }] : []);
+
+// datasets: the traced left-column boxes (id = dataset key); nodes/papers: all other boxes
+const DSLIST = DATA.datasets || [];
+const NODES = [...(DATA.papers || []), ...(DATA.nodes || [])];
+const D = [
+  ...DSLIST.map((d, i) => ({ id: d.id, name: d.name, sub: d.source || '', full: d.source_full || d.source || '', c: 0, y: posY(d, i), k: d.kind, refs: refsOf(d, false), isDs: true })),
+  ...NODES.map(p => { const k = p.kind || 'paper'; return { id: p.id, name: p.name, sub: p.subtitle || '', full: p.full || p.name, c: p.column, y: posY(p), k, refs: refsOf(p, k === 'paper'), note: p.note, status: p.status, attrs: p.attrs || {}, own: p.created && p.created.length ? p.created.map(t => ['', t]) : undefined }; })
+];
+D.forEach((d, i) => { const src = i < DSLIST.length ? DSLIST[i] : NODES[i - DSLIST.length]; d.x = src.x != null ? src.x : cx(d.c); });
+const DS = Object.fromEntries(DSLIST.map(d => [d.id, { name: d.title || d.name, aka: d.aka || '', real: d.real || '', path: d.path || '', sizes: d.sizes || '', get: d.get || '', note: d.note }]));
+const E = DATA.links.map(l => ({ s: l.from, t: l.to, l: l.label || '', ds: l.datasets || [], how: l.how || Object.keys(LTYPE)[0], n: l.note, lt: l.label_pos, ly: l.label_dy, off: l.offset }));
+const tagOf = e => (LTYPE[e.how] || {}).tag || '';
+
+// page text and legend
+document.title = DATA.page_title || DATA.title;
+document.getElementById('title').textContent = DATA.title;
+document.getElementById('lede').innerHTML = DATA.intro || '';
+document.getElementById('vizTitle').textContent = DATA.svg_title || DATA.title;
+document.getElementById('hint').innerHTML = DATA.panel_hint || '';
+document.getElementById('foot').innerHTML = DATA.footer || '';
+(() => {
+  const used = new Set(D.map(d => d.k)), usedHow = new Set(E.map(e => e.how)), usedSt = new Set(D.map(d => d.status));
+  const sw = k => `<span><i class="sw" style="border-color:var(${KIND[k].v});background:color-mix(in srgb,var(${KIND[k].v}) 14%,transparent)"></i>${KIND[k].legend}</span>`;
+  let html = Object.keys(KIND).filter(k => used.has(k)).map(sw).join('');
+  html += Object.entries(LTYPE).filter(([k]) => usedHow.has(k) || k === 'paper').map(([k, t]) => `<span><i class="ln${t.dashed ? ' dash' : ''}"></i>${t.legend}</span>`).join('');
+  html += Object.entries(STATUS).filter(([k, s]) => s.dashed && usedSt.has(k)).map(([k, s]) => `<span><i class="box-dash"></i>${s.legend || k}</span>`).join('');
+  document.getElementById('legend').innerHTML = html;
+  if (!DSLIST.length) document.getElementById('tracer').style.display = 'none';
+  if (!DSLIST.length) document.getElementById('dtable').style.display = 'none';
+  document.getElementById('ntitle').textContent = DATA.node_table_title || 'Paper and source table';
+})();
+
+const byId = Object.fromEntries(D.map(d => [d.id, d]));
+const parents = {}, children = {};
+D.forEach(d => { parents[d.id] = []; children[d.id] = []; });
+E.forEach((e, i) => { parents[e.t].push(i); children[e.s].push(i); });
+
+const svgNS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('viz');
+const VW = LAY.width || Math.max(...D.map(d => d.x)) + W + 16, VH = LAY.height || Math.max(...D.map(d => d.y)) + H + 30;
+svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+if (DATA.labels === 'always') svg.classList.add('alllabels');
+const css = getComputedStyle(document.querySelector('.viz-root'));
+const el = (t, a, parent = svg) => { const e = document.createElementNS(svgNS, t); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+const defs = el('defs', {});
+const mk = el('marker', { id:'arr', viewBox:'0 0 10 10', refX:'9', refY:'5', markerWidth:'6', markerHeight:'6', orient:'auto-start-reverse' }, defs);
+el('path', { d:'M0,0 L10,5 L0,10 z', fill:'var(--muted)' }, mk);
+
+if (DATA.lanes) {
+  DATA.lanes.forEach(l => {
+    el('rect', { class:'lane-band', x:10, y:l.y, width:VW - 20, height:l.h, rx:10 });
+    const t = el('text', { class:'lane-label', x:LAY.first_x, y:l.label_y != null ? l.label_y : l.y + 18 }); t.textContent = l.label;
+  });
+} else {
+  COLS.forEach(c => {
+    el('rect', { class:'lane-band', x:c.x - 12, y:8, width:W + 24, height:VH - 16, rx:10 });
+    const t = el('text', { class:'lane-label', x:c.x, y:30 }); t.textContent = c.label;
+  });
+}
+
+// edges
+const edgeEls = [], labelEls = [];
+const gEdges = el('g', {}), gLabels = el('g', {});
+E.forEach((e, i) => {
+  const s = byId[e.s], t = byId[e.t], off = e.off || 0;
+  const x1 = s.x + W, y1 = s.y + H/2 + off/2, x2 = t.x - 2, y2 = t.y + H/2 + off, dx = Math.max(LAY.min_curve, (x2 - x1) / 2);
+  const d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+  const p = el('path', { class:'edge' + ((LTYPE[e.how] || {}).dashed ? ' dashed' : ''), d, 'marker-end':'url(#arr)' }, gEdges);
+  const hit = el('path', { class:'edge-hit', d }, gEdges);
+  const tt = el('title', {}, hit); tt.textContent = `${s.name} → ${t.name}${e.l ? ': ' + e.l : ''}\n${e.n || ''}`;
+  hit.addEventListener('mouseenter', () => { if (!pinned && !activeDs) focusEdges(new Set([i])); });
+  hit.addEventListener('mouseleave', () => { if (!pinned && !activeDs) clearFocus(); });
+  p.dataset.i = i; edgeEls.push(p);
+  // label position on the cubic at parameter lt
+  const u = e.lt ?? .5, m = 1 - u;
+  const lx = m*m*m*x1 + 3*m*m*u*(x1+dx) + 3*m*u*u*(x2-dx) + u*u*u*x2;
+  const ly = m*m*m*y1 + 3*m*m*u*y1 + 3*m*u*u*y2 + u*u*u*y2;
+  const lb = el('text', { class:'edge-label', x:lx, y:ly - 4 + (e.ly || 0), 'text-anchor':'middle' }, gLabels);
+  lb.textContent = e.l || (LTYPE[e.how] || {}).label || ''; lb.dataset.i = i; labelEls.push(lb);
+});
+
+// nodes
+const nodeEls = {};
+D.forEach(d => {
+  const c = css.getPropertyValue(KIND[d.k].v).trim();
+  const st = STATUS[d.status] || {};
+  const g = el('g', { class:'node' + (st.dashed ? ' dashed' : ''), tabindex:'0', role:'button', 'aria-label':`${d.name}: ${KIND[d.k].label}${d.status ? ', ' + d.status : ''}`, transform:`translate(${d.x},${d.y})` });
+  el('rect', { class:'hit', x:-6, y:-6, width:W+12, height:H+12, rx:10 }, g);
+  el('rect', { class:'body', width:W, height:H, rx:6, fill:`color-mix(in srgb, ${c} 13%, var(--surface-1))`, stroke:c }, g);
+  const n = el('text', { class:'name', x:10, y:19 }, g); n.textContent = d.name;
+  const s = el('text', { class:'sub', x:10, y:35 }, g); s.textContent = d.sub || '';
+  nodeEls[d.id] = g;
+  const isDs = d.isDs;
+  if (isDs) g.classList.add('dsnode');
+  g.addEventListener('mouseenter', () => { if (!pinned && !activeDs) (isDs ? previewDs(d.id) : focusNode(d.id)); });
+  g.addEventListener('focus', () => { if (!pinned && !activeDs) (isDs ? previewDs(d.id) : focusNode(d.id)); });
+  g.addEventListener('mouseleave', () => { if (!pinned && !activeDs) clearFocus(); });
+  const act = () => isDs ? showDs(d.id) : pin(d.id);
+  g.addEventListener('click', ev => { ev.stopPropagation(); act(); });
+  g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); act(); } if (ev.key === 'Escape') reset(); });
+});
+svg.addEventListener('click', reset);
+
+let pinned = null, activeDs = null;
+const walk = (id, dir, acc = new Set()) => {
+  (dir === 'up' ? parents[id] : children[id]).forEach(i => { const o = dir === 'up' ? E[i].s : E[i].t; if (!acc.has(o)) { acc.add(o); walk(o, dir, acc); } });
+  return acc;
+};
+function focusEdges(edgeSet) {
+  const keep = new Set(); edgeSet.forEach(i => { keep.add(E[i].s); keep.add(E[i].t); });
+  svg.classList.add('focusing');
+  for (const k in nodeEls) nodeEls[k].classList.toggle('dim', !keep.has(k));
+  edgeEls.forEach((p, i) => { const on = edgeSet.has(i); p.classList.toggle('dim', !on); p.classList.toggle('on', on); labelEls[i].classList.toggle('dim', !on); labelEls[i].classList.toggle('on', on); });
+}
+function focusNode(id) {
+  // edges on any path through this node: ancestors' edges into the lineage + descendants
+  const up = walk(id, 'up'), down = walk(id, 'down'), keep = new Set([id, ...up, ...down]);
+  const es = new Set();
+  E.forEach((e, i) => { if ((keep.has(e.s) && keep.has(e.t)) && ((up.has(e.s) || e.s === id) && (up.has(e.t) || e.t === id) || (down.has(e.t) || e.t === id) && (down.has(e.s) || e.s === id))) es.add(i); });
+  focusEdges(es);
+  renderNode(id);
+}
+function clearFocus() {
+  svg.classList.remove('focusing');
+  for (const k in nodeEls) nodeEls[k].classList.remove('dim');
+  edgeEls.forEach((p, i) => { p.classList.remove('dim', 'on'); labelEls[i].classList.remove('dim', 'on'); });
+}
+function reset() {
+  pinned = null; activeDs = null;
+  for (const k in nodeEls) nodeEls[k].classList.remove('pinned');
+  chips.forEach(b => b.setAttribute('aria-pressed', 'false'));
+  clearFocus(); panel.innerHTML = hintHTML;
+}
+function pin(id) {
+  activeDs = null; chips.forEach(b => b.setAttribute('aria-pressed', 'false'));
+  pinned = pinned === id ? null : id;
+  for (const k in nodeEls) nodeEls[k].classList.toggle('pinned', k === pinned);
+  if (pinned) focusNode(id); else reset();
+}
+const dsEdges = key => { const es = new Set(); E.forEach((e, i) => { if (e.ds.includes(key)) es.add(i); }); return es; };
+function previewDs(key) { focusEdges(dsEdges(key)); renderDs(key); }
+function showDs(key) {
+  if (activeDs === key) { reset(); return; }
+  pinned = null; for (const k in nodeEls) nodeEls[k].classList.remove('pinned');
+  activeDs = key;
+  chips.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === key)));
+  for (const k in nodeEls) nodeEls[k].classList.toggle('pinned', k === key);
+  focusEdges(dsEdges(key)); renderDs(key);
+}
+
+// panel
+const panel = document.getElementById('panel');
+const hintHTML = panel.innerHTML;
+const dsLink = k => `<span class="ds" data-ds="${k}">${esc(DS[k].name)}</span>`;
+function bindDs() { panel.querySelectorAll('.ds').forEach(s => s.addEventListener('click', () => showDs(s.dataset.ds))); }
+const statusChip = d => d.status ? `<span class="chip">${STATUS[d.status] && STATUS[d.status].badge ? STATUS[d.status].badge + ' ' : ''}${esc(d.status)}</span>` : '';
+const fieldsHTML = d => FIELDS.filter(f => f.panel !== false && d.attrs[f.key] != null).map(f => `<div class="k">${esc(f.label)}</div><p>${esc(d.attrs[f.key])}</p>`).join('');
+const refsHTML = d => `<div class="links">${d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)} ↗</a>`).join('')}</div>`;
+function chainUp(id, seen = new Set()) {
+  // longest path back to a root, for the provenance chain line
+  if (seen.has(id)) return [id];
+  const ps = parents[id]; if (!ps.length) return [id];
+  let best = []; ps.forEach(i => { const c = chainUp(E[i].s, new Set([...seen, id])); if (c.length > best.length) best = c; });
+  return [...best, id];
+}
+function renderNode(id) {
+  const d = byId[id], c = css.getPropertyValue(KIND[d.k].v).trim();
+  const inc = parents[id].map(i => E[i]), out = children[id].map(i => E[i]);
+  const tagged = (e, sep) => tagOf(e) ? sep + tagOf(e) : '';
+  const head = `
+    <h2>${esc(d.name)}</h2><p class="full">${esc(d.full)}</p>
+    <span class="chip"><i style="background:${c}"></i>${esc(KIND[d.k].label)}</span>${statusChip(d)}`;
+  if (DATA.panel === 'lineage') {
+    // dataset-to-dataset maps: attributes, provenance chain, parents, all descendants
+    const chain = chainUp(id), down = [...walk(id, 'down')];
+    panel.innerHTML = `${head}
+    ${fieldsHTML(d)}
+    ${chain.length > 1 ? `<div class="k">Provenance chain</div><p class="chain">${chain.map(k => esc(byId[k].name)).join(' → ')}</p>` : ''}
+    <div class="k">Built from</div><p>${inc.length ? inc.map(e => esc(byId[e.s].name) + (tagOf(e) ? ` (${esc(tagOf(e))})` : '')).join(', ') : 'No upstream dataset in this map'}</p>
+    <div class="k">Downstream</div><p>${down.length ? down.map(k => esc(byId[k].name)).join(', ') : 'None in this map'}</p>
+    ${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}
+    ${refsHTML(d)}`;
+    return;
+  }
+  const li = (e, other) => `<li><b>${esc(e.l)}</b> <span class="from">${other}${tagged(e, ' · ')}</span>${e.n ? `<br><span class="from">${esc(e.n)}</span>` : ''}</li>`;
+  panel.innerHTML = `${head}
+    ${fieldsHTML(d)}
+    ${inc.length ? `<div class="k">Datasets taken</div><ul>${inc.map(e => li(e, '← ' + esc(byId[e.s].name))).join('')}</ul>` : ''}
+    ${d.own ? `<div class="k">Datasets created here</div><ul>${d.own.map(o => `<li>${esc(o[1])}</li>`).join('')}</ul>` : ''}
+    ${out.length ? `<div class="k">Supplied to</div><ul>${out.map(e => `<li><b>${esc(e.l)}</b> <span class="from">→ ${esc(byId[e.t].name)}${tagged(e, ' · ')}</span></li>`).join('')}</ul>` : ''}
+    ${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}
+    ${DSLIST.length ? `<div class="k">Trace</div><p>${[...new Set([...inc, ...out].flatMap(e => e.ds))].map(dsLink).join(' · ') || '—'}</p>` : ''}
+    ${refsHTML(d)}`;
+  bindDs();
+}
+function renderDs(k) {
+  const s = DS[k], src = byId[k], c = css.getPropertyValue(KIND[src.k].v).trim();
+  const es = E.filter(e => e.ds.includes(k)), u = src.refs[0];
+  panel.innerHTML = `
+    <h2>${esc(s.name)}</h2>${s.aka ? `<p class="full">Also: ${esc(s.aka)}</p>` : ''}
+    <span class="chip"><i style="background:${c}"></i>${esc(KIND[src.k].label)}</span>
+    <div class="k">Original source</div><p>${esc(src.sub)}: ${esc(src.full)}${u ? ` · <a href="${esc(u.url)}" target="_blank" rel="noopener">link ↗</a>` : ''}</p>
+    ${s.real ? `<div class="k">Real or synthetic</div><p>${esc(s.real)}</p>` : ''}
+    ${s.path ? `<div class="k">Path</div><p>${esc(s.path)}</p>` : ''}
+    ${s.sizes ? `<div class="k">Sizes as reported</div><p>${esc(s.sizes)}</p>` : ''}
+    ${s.note ? `<div class="k">Note</div><p>${esc(s.note)}</p>` : ''}
+    ${s.get ? `<div class="k">Where to get it</div><p>${esc(s.get)}</p>` : ''}
+    <div class="k">Links on the map (${es.length})</div><ul>${es.map(e => `<li>${esc(byId[e.s].name)} → ${esc(byId[e.t].name)} <span class="from">(${esc(e.l)}${tagOf(e) ? ', ' + esc(tagOf(e)) : ''})</span></li>`).join('')}</ul>`;
+}
+
+// dataset chips
+const chipBox = document.getElementById('chips');
+const order = DSLIST.map(d => d.id);
+const chips = order.map(k => {
+  const b = document.createElement('button');
+  b.className = 'dchip'; b.dataset.k = k; b.setAttribute('aria-pressed', 'false');
+  const n = E.filter(e => e.ds.includes(k)).length;
+  b.innerHTML = `<i style="background:${css.getPropertyValue(KIND[byId[k].k].v).trim()}"></i>${esc(DS[k].name)}<span class="ct">${n}</span>`;
+  b.title = `${DS[k].name}: ${DS[k].path}`;
+  b.addEventListener('click', ev => { ev.stopPropagation(); showDs(k); });
+  chipBox.appendChild(b);
+  return b;
+});
+document.getElementById('labelToggle').addEventListener('change', ev => svg.classList.toggle('alllabels', ev.target.checked));
+
+// tables
+const dt = document.querySelector('#dtbl tbody');
+order.forEach(k => {
+  const s = DS[k], tr = document.createElement('tr');
+  tr.innerHTML = `<td><b>${esc(s.name)}</b>${s.aka ? `<br><span style="color:var(--text-secondary)">${esc(s.aka)}</span>` : ''}</td><td>${esc(byId[k].sub)}</td><td>${esc(s.real)}</td><td>${esc(s.path)}</td><td class="sz">${esc(s.sizes).replace(/ · /g, '<br>')}</td><td>${esc(s.get)}</td>`;
+  dt.appendChild(tr);
+});
+const NCOLS = DATA.node_table || [
+  { col: 'name', label: 'Node' }, { col: 'kind', label: 'Type' }, { col: 'from', label: 'Datasets taken (from)' },
+  { col: 'to', label: 'Datasets supplied (to)' }, { col: 'links', label: 'Link' }
+];
+document.querySelector('#ntbl thead').innerHTML = `<tr>${NCOLS.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr>`;
+const nt = document.querySelector('#ntbl tbody');
+const cell = (c, d) => {
+  if (c.col === 'name') return `<b>${esc(d.name)}</b><br><span style="color:var(--text-secondary)">${esc(d.full)}</span>`;
+  if (c.col === 'kind') return esc(KIND[d.k].label);
+  if (c.col === 'status') return esc(d.status || '');
+  if (c.col === 'field') return esc(d.attrs[c.key] != null ? d.attrs[c.key] : '');
+  if (c.col === 'from') return parents[d.id].map(i => E[i].l ? `${esc(E[i].l)} (${esc(byId[E[i].s].name)}${tagOf(E[i]) ? ', ' + esc(tagOf(E[i])) : ''})` : esc(byId[E[i].s].name) + (tagOf(E[i]) ? ` (${esc(tagOf(E[i]))})` : '')).join(E.some(e => e.l) ? '; ' : ', ') || '—';
+  if (c.col === 'to') return children[d.id].map(i => E[i].l ? `${esc(E[i].l)} (${esc(byId[E[i].t].name)})` : esc(byId[E[i].t].name)).join(E.some(e => e.l) ? '; ' : ', ') || '—';
+  if (c.col === 'links') return d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.short || r.label)}</a>`).join(' · ');
+  return '';
+};
+D.forEach(d => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = NCOLS.map(c => `<td>${cell(c, d)}</td>`).join('');
+  nt.appendChild(tr);
+});
+</script>
+</body>
+</html>
