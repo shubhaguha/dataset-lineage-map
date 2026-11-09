@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+<style>
+.viz-root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #8a5cc7;
+  --neutral: #898781;
+  --band: rgba(11,11,11,0.025);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #9d75d6;
+    --band: rgba(255,255,255,0.03);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.viz-root { background: var(--page); color: var(--text-primary); min-height: 100vh; padding: 28px 28px 72px; }
+header { max-width: 1500px; margin: 0 auto 14px; }
+h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+.lede { color: var(--text-secondary); font-size: 14.5px; line-height: 1.5; max-width: 900px; margin: 0; }
+.lede b { color: var(--text-primary); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 14px 0 0; font-size: 12.5px; color: var(--text-secondary); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; display: inline-block; }
+.ln { width: 26px; height: 0; border-top: 1.75px solid var(--muted); display: inline-block; }
+.ln.dash { border-top-style: dashed; }
+.tracer { max-width: 1500px; margin: 0 auto 14px; padding: 14px 16px 12px; }
+.tracer-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
+.tracer-head h2 { font-size: 17px; font-weight: 600; margin: 0; }
+.tracer-hint { font-size: 12.5px; color: var(--text-secondary); }
+.chips { display: flex; flex-wrap: wrap; gap: 7px 8px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 12px; font-size: 12.5px; }
+.toolbar { max-width: 1500px; margin: 0 auto 12px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: 12.5px; }
+.toolbar .lbl { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; font-weight: 600; margin-right: 4px; }
+.dchip { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 13px 7px 10px; border-radius: 999px; border: 1.5px solid var(--axis); background: var(--surface-1); color: var(--text-primary); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.dchip i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.dchip:hover { border-color: var(--axis); }
+.dchip[aria-pressed="true"] { background: var(--text-primary); color: var(--page); border-color: var(--text-primary); }
+.dchip .ct { color: var(--muted); font-size: 11.5px; font-weight: 500; }
+.dchip[aria-pressed="true"] .ct { color: var(--axis); }
+.toggle { display: inline-flex; gap: 6px; align-items: center; color: var(--text-secondary); cursor: pointer; user-select: none; }
+.layout { max-width: 1500px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 1050px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.chart { padding: 10px; overflow: hidden; }
+svg { display: block; width: 100%; height: auto; }
+.lane-band { fill: var(--band); }
+.lane-label { font-size: 11px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.edge { fill: none; stroke: var(--muted); stroke-width: 1.5; transition: opacity .15s, stroke .15s; }
+.edge.inferred { stroke-dasharray: 5 4; }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 9; cursor: help; }
+.edge-label { font-size: 10.5px; fill: var(--text-primary); paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; opacity: 0; transition: opacity .15s; }
+svg.alllabels .edge-label { opacity: 1; }
+svg.focusing .edge-label.on { opacity: 1; }
+svg.focusing.alllabels .edge-label.dim { opacity: 0.12; }
+.node { cursor: pointer; transition: opacity .15s; outline: none; }
+.node rect.body { stroke-width: 2; }
+.node .name { font-size: 12.5px; font-weight: 600; fill: var(--text-primary); }
+.node .sub { font-size: 10.5px; fill: var(--text-secondary); }
+.node .hit { fill: transparent; }
+.node.dsnode .name { font-size: 13.5px; }
+.node:focus-visible rect.body, .node.pinned rect.body { stroke-width: 3; }
+svg.focusing .node.dim, svg.focusing .edge.dim { opacity: 0.12; }
+svg.focusing .edge.on { stroke-width: 2.3; stroke: var(--text-secondary); }
+.panel { padding: 18px 18px 16px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
+.panel .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin: 14px 0 4px; }
+.panel h2 { font-size: 19px; margin: 0 0 2px; font-weight: 600; }
+.panel .full { color: var(--text-secondary); font-size: 12.5px; margin: 0 0 8px; line-height: 1.4; }
+.panel p { margin: 0; font-size: 13px; line-height: 1.45; }
+.panel ul { margin: 0; padding-left: 16px; font-size: 13px; line-height: 1.45; }
+.panel li { margin-bottom: 5px; }
+.panel li .from { color: var(--text-secondary); }
+.panel .ds { font-weight: 600; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); margin: 2px 4px 2px 0; color: var(--text-primary); }
+.chip i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.links { margin-top: 14px; display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.links a, .panel a { color: var(--series-1); text-decoration: none; font-weight: 600; }
+.links a:hover, .panel a:hover { text-decoration: underline; }
+.hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+details.table { max-width: 1500px; margin: 18px auto 0; padding: 12px 16px; }
+details.table summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+td a { color: var(--series-1); }
+td.sz { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.foot { max-width: 1500px; margin: 14px auto 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+@media print {
+  .viz-root { padding: 10mm; min-height: 0; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .panel, .toolbar { display: none; }
+  details.table { break-before: page; }
+  details.table > *:not(summary) { display: block; }
+  @page { size: A4 landscape; margin: 8mm; }
+}
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <header>
+    <h1 id="title"></h1>
+    <p class="lede" id="lede"></p>
+    <div class="legend" id="legend" aria-label="Legend"></div>
+  </header>
+
+  <section class="card tracer" aria-label="Trace a dataset">
+    <div class="tracer-head"><h2>Trace a dataset</h2><span class="tracer-hint">Pick one to follow it from its origin through every paper that used it. The boxes in the left column of the map do the same. The number is how many links carry it.</span></div>
+    <div class="chips" id="chips"></div>
+    <div class="opts">
+      <label class="toggle"><input type="checkbox" id="labelToggle"> Show all line labels</label>
+    </div>
+  </section>
+
+  <div class="layout">
+    <div class="card chart"><svg id="viz" role="img" aria-labelledby="vizTitle"><title id="vizTitle"></title></svg></div>
+    <aside class="card panel" id="panel" aria-live="polite">
+      <p class="hint" id="hint"></p>
+    </aside>
+  </div>
+
+  <details class="card table" open>
+    <summary>Dataset table</summary>
+    <table id="dtbl"><thead><tr><th>Dataset</th><th>Original source</th><th>Real or synthetic</th><th>Path to recent benchmarks</th><th>Sizes as reported</th><th>Where to get it</th></tr></thead><tbody></tbody></table>
+  </details>
+  <details class="card table">
+    <summary>Paper and source table</summary>
+    <table id="ntbl"><thead><tr><th>Node</th><th>Type</th><th>Datasets taken (from)</th><th>Datasets supplied (to)</th><th>Link</th></tr></thead><tbody></tbody></table>
+  </details>
+  <p class="foot" id="foot"></p>
+</div>
+
+<script id="lineage-data" type="application/json">/*__LINEAGE_DATA__*/</script>
+<script>
+// ---- Generic lineage renderer. All content comes from the JSON block above (built from YAML by build.py). ----
+const DATA = JSON.parse(document.getElementById('lineage-data').textContent);
+const W = 170, H = 46, TOP = 52, ROW = 58;
+const KIND = Object.fromEntries(Object.entries(DATA.kinds).map(([k, v]) => [k, { label: v.label, legend: v.legend || v.label, v: '--' + v.color }]));
+const COLS = DATA.columns.map((label, i) => ({ label, x: i === 0 ? 24 : 300 + (i - 1) * 220 }));
+const cx = i => COLS[i].x;
+const row = i => TOP + i * ROW;
+
+// column 0: one box per original dataset (id = dataset key), in YAML order
+const D = [
+  ...DATA.datasets.map((d, i) => ({ id: d.id, name: d.name, sub: d.source || '', full: d.source_full || d.source || '', c: 0, y: row(i), k: d.kind, url: d.url })),
+  ...DATA.papers.map(p => ({ id: p.id, name: p.name, sub: p.subtitle || '', full: p.full || p.name, c: p.column, y: row(p.row), k: p.kind || 'paper', url: p.url, note: p.note, own: p.created && p.created.length ? p.created.map(t => ['', t]) : undefined }))
+];
+D.forEach(d => d.x = cx(d.c));
+const DS = Object.fromEntries(DATA.datasets.map(d => [d.id, { name: d.title || d.name, aka: d.aka || '', real: d.real || '', path: d.path || '', sizes: d.sizes || '', get: d.get || '', note: d.note }]));
+const E = DATA.links.map(l => ({ s: l.from, t: l.to, l: l.label, ds: l.datasets, how: l.how || 'paper', n: l.note, lt: l.label_pos, ly: l.label_dy, off: l.offset }));
+
+// page text and legend
+document.title = DATA.page_title || DATA.title;
+document.getElementById('title').textContent = DATA.title;
+document.getElementById('lede').innerHTML = DATA.intro || '';
+document.getElementById('vizTitle').textContent = DATA.svg_title || DATA.title;
+document.getElementById('hint').innerHTML = DATA.panel_hint || '';
+document.getElementById('foot').innerHTML = DATA.footer || '';
+(() => {
+  const used = new Set(D.map(d => d.k)), LL = DATA.links_legend || {};
+  const sw = k => `<span><i class="sw" style="border-color:var(${KIND[k].v});background:color-mix(in srgb,var(${KIND[k].v}) 14%,transparent)"></i>${KIND[k].legend}</span>`;
+  let html = Object.keys(KIND).filter(k => used.has(k)).map(sw).join('');
+  html += `<span><i class="ln"></i>${LL.paper || 'Source stated in the citing paper'}</span>`;
+  if (E.some(e => e.how === 'inferred')) html += `<span><i class="ln dash"></i>${LL.inferred || 'Inferred'}</span>`;
+  document.getElementById('legend').innerHTML = html;
+})();
+
+const byId = Object.fromEntries(D.map(d => [d.id, d]));
+const parents = {}, children = {};
+D.forEach(d => { parents[d.id] = []; children[d.id] = []; });
+E.forEach((e, i) => { parents[e.t].push(i); children[e.s].push(i); });
+
+const svgNS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('viz');
+const VW = COLS[COLS.length - 1].x + W + 16, VH = Math.max(...D.map(d => d.y)) + H + 30;
+svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+const css = getComputedStyle(document.querySelector('.viz-root'));
+const el = (t, a, parent = svg) => { const e = document.createElementNS(svgNS, t); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+const defs = el('defs', {});
+const mk = el('marker', { id:'arr', viewBox:'0 0 10 10', refX:'9', refY:'5', markerWidth:'6', markerHeight:'6', orient:'auto-start-reverse' }, defs);
+el('path', { d:'M0,0 L10,5 L0,10 z', fill:'var(--muted)' }, mk);
+
+COLS.forEach(c => {
+  el('rect', { class:'lane-band', x:c.x - 12, y:8, width:W + 24, height:VH - 16, rx:10 });
+  const t = el('text', { class:'lane-label', x:c.x, y:30 }); t.textContent = c.label;
+});
+
+// edges
+const edgeEls = [], labelEls = [];
+const gEdges = el('g', {}), gLabels = el('g', {});
+E.forEach((e, i) => {
+  const s = byId[e.s], t = byId[e.t], off = e.off || 0;
+  const x1 = s.x + W, y1 = s.y + H/2 + off/2, x2 = t.x - 2, y2 = t.y + H/2 + off, dx = Math.max(40, (x2 - x1) / 2);
+  const d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+  const p = el('path', { class:'edge' + (e.how === 'inferred' ? ' inferred' : ''), d, 'marker-end':'url(#arr)' }, gEdges);
+  const hit = el('path', { class:'edge-hit', d }, gEdges);
+  const tt = el('title', {}, hit); tt.textContent = `${s.name} → ${t.name}: ${e.l}\n${e.n || ''}`;
+  hit.addEventListener('mouseenter', () => { if (!pinned && !activeDs) focusEdges(new Set([i])); });
+  hit.addEventListener('mouseleave', () => { if (!pinned && !activeDs) clearFocus(); });
+  p.dataset.i = i; edgeEls.push(p);
+  // label position on the cubic at parameter lt
+  const u = e.lt ?? .5, m = 1 - u;
+  const lx = m*m*m*x1 + 3*m*m*u*(x1+dx) + 3*m*u*u*(x2-dx) + u*u*u*x2;
+  const ly = m*m*m*y1 + 3*m*m*u*y1 + 3*m*u*u*y2 + u*u*u*y2;
+  const lb = el('text', { class:'edge-label', x:lx, y:ly - 4 + (e.ly || 0), 'text-anchor':'middle' }, gLabels);
+  lb.textContent = e.l; lb.dataset.i = i; labelEls.push(lb);
+});
+
+// nodes
+const nodeEls = {};
+D.forEach(d => {
+  const c = css.getPropertyValue(KIND[d.k].v).trim();
+  const g = el('g', { class:'node', tabindex:'0', role:'button', 'aria-label':`${d.name}: ${KIND[d.k].label}`, transform:`translate(${d.x},${d.y})` });
+  el('rect', { class:'hit', x:-6, y:-6, width:W+12, height:H+12, rx:10 }, g);
+  el('rect', { class:'body', width:W, height:H, rx:6, fill:`color-mix(in srgb, ${c} 13%, var(--surface-1))`, stroke:c }, g);
+  const n = el('text', { class:'name', x:10, y:19 }, g); n.textContent = d.name;
+  const s = el('text', { class:'sub', x:10, y:35 }, g); s.textContent = d.sub || '';
+  nodeEls[d.id] = g;
+  const isDs = d.c === 0;
+  if (isDs) g.classList.add('dsnode');
+  g.addEventListener('mouseenter', () => { if (!pinned && !activeDs) (isDs ? previewDs(d.id) : focusNode(d.id)); });
+  g.addEventListener('focus', () => { if (!pinned && !activeDs) (isDs ? previewDs(d.id) : focusNode(d.id)); });
+  g.addEventListener('mouseleave', () => { if (!pinned && !activeDs) clearFocus(); });
+  const act = () => isDs ? showDs(d.id) : pin(d.id);
+  g.addEventListener('click', ev => { ev.stopPropagation(); act(); });
+  g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); act(); } if (ev.key === 'Escape') reset(); });
+});
+svg.addEventListener('click', reset);
+
+let pinned = null, activeDs = null;
+const walk = (id, dir, acc = new Set()) => {
+  (dir === 'up' ? parents[id] : children[id]).forEach(i => { const o = dir === 'up' ? E[i].s : E[i].t; if (!acc.has(o)) { acc.add(o); walk(o, dir, acc); } });
+  return acc;
+};
+function focusEdges(edgeSet) {
+  const keep = new Set(); edgeSet.forEach(i => { keep.add(E[i].s); keep.add(E[i].t); });
+  svg.classList.add('focusing');
+  for (const k in nodeEls) nodeEls[k].classList.toggle('dim', !keep.has(k));
+  edgeEls.forEach((p, i) => { const on = edgeSet.has(i); p.classList.toggle('dim', !on); p.classList.toggle('on', on); labelEls[i].classList.toggle('dim', !on); labelEls[i].classList.toggle('on', on); });
+}
+function focusNode(id) {
+  // edges on any path through this node: ancestors' edges into the lineage + descendants
+  const up = walk(id, 'up'), down = walk(id, 'down'), keep = new Set([id, ...up, ...down]);
+  const es = new Set();
+  E.forEach((e, i) => { if ((keep.has(e.s) && keep.has(e.t)) && ((up.has(e.s) || e.s === id) && (up.has(e.t) || e.t === id) || (down.has(e.t) || e.t === id) && (down.has(e.s) || e.s === id))) es.add(i); });
+  focusEdges(es);
+  renderNode(id);
+}
+function clearFocus() {
+  svg.classList.remove('focusing');
+  for (const k in nodeEls) nodeEls[k].classList.remove('dim');
+  edgeEls.forEach((p, i) => { p.classList.remove('dim', 'on'); labelEls[i].classList.remove('dim', 'on'); });
+}
+function reset() {
+  pinned = null; activeDs = null;
+  for (const k in nodeEls) nodeEls[k].classList.remove('pinned');
+  chips.forEach(b => b.setAttribute('aria-pressed', 'false'));
+  clearFocus(); panel.innerHTML = hintHTML;
+}
+function pin(id) {
+  activeDs = null; chips.forEach(b => b.setAttribute('aria-pressed', 'false'));
+  pinned = pinned === id ? null : id;
+  for (const k in nodeEls) nodeEls[k].classList.toggle('pinned', k === pinned);
+  if (pinned) focusNode(id); else reset();
+}
+const dsEdges = key => { const es = new Set(); E.forEach((e, i) => { if (e.ds.includes(key)) es.add(i); }); return es; };
+function previewDs(key) { focusEdges(dsEdges(key)); renderDs(key); }
+function showDs(key) {
+  if (activeDs === key) { reset(); return; }
+  pinned = null; for (const k in nodeEls) nodeEls[k].classList.remove('pinned');
+  activeDs = key;
+  chips.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === key)));
+  for (const k in nodeEls) nodeEls[k].classList.toggle('pinned', k === key);
+  focusEdges(dsEdges(key)); renderDs(key);
+}
+
+// panel
+const panel = document.getElementById('panel');
+const hintHTML = panel.innerHTML;
+const dsLink = k => `<span class="ds" data-ds="${k}">${esc(DS[k].name)}</span>`;
+function bindDs() { panel.querySelectorAll('.ds').forEach(s => s.addEventListener('click', () => showDs(s.dataset.ds))); }
+function renderNode(id) {
+  const d = byId[id], c = css.getPropertyValue(KIND[d.k].v).trim();
+  const inc = parents[id].map(i => E[i]), out = children[id].map(i => E[i]);
+  const li = (e, other) => `<li><b>${esc(e.l)}</b> <span class="from">${other}${e.how === 'inferred' ? ' · inferred' : ''}</span>${e.n ? `<br><span class="from">${esc(e.n)}</span>` : ''}</li>`;
+  panel.innerHTML = `
+    <h2>${esc(d.name)}</h2><p class="full">${esc(d.full)}</p>
+    <span class="chip"><i style="background:${c}"></i>${esc(KIND[d.k].label)}</span>
+    ${inc.length ? `<div class="k">Datasets taken</div><ul>${inc.map(e => li(e, '← ' + esc(byId[e.s].name))).join('')}</ul>` : ''}
+    ${d.own ? `<div class="k">Datasets created here</div><ul>${d.own.map(o => `<li>${esc(o[1])}</li>`).join('')}</ul>` : ''}
+    ${out.length ? `<div class="k">Supplied to</div><ul>${out.map(e => `<li><b>${esc(e.l)}</b> <span class="from">→ ${esc(byId[e.t].name)}${e.how === 'inferred' ? ' · inferred' : ''}</span></li>`).join('')}</ul>` : ''}
+    ${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}
+    <div class="k">Trace</div><p>${[...new Set([...inc, ...out].flatMap(e => e.ds))].map(dsLink).join(' · ') || '—'}</p>
+    <div class="links">${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${d.k === 'paper' ? 'Paper (DOI)' : 'Source'} ↗</a>` : ''}</div>`;
+  bindDs();
+}
+function renderDs(k) {
+  const s = DS[k], src = byId[k], c = css.getPropertyValue(KIND[src.k].v).trim();
+  const es = E.filter(e => e.ds.includes(k));
+  panel.innerHTML = `
+    <h2>${esc(s.name)}</h2>${s.aka ? `<p class="full">Also: ${esc(s.aka)}</p>` : ''}
+    <span class="chip"><i style="background:${c}"></i>${esc(KIND[src.k].label)}</span>
+    <div class="k">Original source</div><p>${esc(src.sub)}: ${esc(src.full)}${src.url ? ` · <a href="${esc(src.url)}" target="_blank" rel="noopener">link ↗</a>` : ''}</p>
+    ${s.real ? `<div class="k">Real or synthetic</div><p>${esc(s.real)}</p>` : ''}
+    ${s.path ? `<div class="k">Path</div><p>${esc(s.path)}</p>` : ''}
+    ${s.sizes ? `<div class="k">Sizes as reported</div><p>${esc(s.sizes)}</p>` : ''}
+    ${s.note ? `<div class="k">Note</div><p>${esc(s.note)}</p>` : ''}
+    ${s.get ? `<div class="k">Where to get it</div><p>${esc(s.get)}</p>` : ''}
+    <div class="k">Links on the map (${es.length})</div><ul>${es.map(e => `<li>${esc(byId[e.s].name)} → ${esc(byId[e.t].name)} <span class="from">(${esc(e.l)}${e.how === 'inferred' ? ', inferred' : ''})</span></li>`).join('')}</ul>`;
+}
+
+// dataset chips
+const chipBox = document.getElementById('chips');
+const order = D.filter(d => d.c === 0).map(d => d.id);
+const chips = order.map(k => {
+  const b = document.createElement('button');
+  b.className = 'dchip'; b.dataset.k = k; b.setAttribute('aria-pressed', 'false');
+  const n = E.filter(e => e.ds.includes(k)).length;
+  b.innerHTML = `<i style="background:${css.getPropertyValue(KIND[byId[k].k].v).trim()}"></i>${esc(DS[k].name)}<span class="ct">${n}</span>`;
+  b.title = `${DS[k].name}: ${DS[k].path}`;
+  b.addEventListener('click', ev => { ev.stopPropagation(); showDs(k); });
+  chipBox.appendChild(b);
+  return b;
+});
+document.getElementById('labelToggle').addEventListener('change', ev => svg.classList.toggle('alllabels', ev.target.checked));
+
+// tables
+const dt = document.querySelector('#dtbl tbody');
+order.forEach(k => {
+  const s = DS[k], tr = document.createElement('tr');
+  tr.innerHTML = `<td><b>${esc(s.name)}</b>${s.aka ? `<br><span style="color:var(--text-secondary)">${esc(s.aka)}</span>` : ''}</td><td>${esc(byId[k].sub)}</td><td>${esc(s.real)}</td><td>${esc(s.path)}</td><td class="sz">${esc(s.sizes).replace(/ · /g, '<br>')}</td><td>${esc(s.get)}</td>`;
+  dt.appendChild(tr);
+});
+const nt = document.querySelector('#ntbl tbody');
+D.forEach(d => {
+  const tr = document.createElement('tr');
+  const inc = parents[d.id].map(i => `${esc(E[i].l)} (${esc(byId[E[i].s].name)}${E[i].how === 'inferred' ? ', inferred' : ''})`).join('; ');
+  const out = children[d.id].map(i => `${esc(E[i].l)} (${esc(byId[E[i].t].name)})`).join('; ');
+  tr.innerHTML = `<td><b>${esc(d.name)}</b><br><span style="color:var(--text-secondary)">${esc(d.full)}</span></td><td>${esc(KIND[d.k].label)}</td><td>${inc || '—'}</td><td>${out || '—'}</td><td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${d.k === 'paper' ? 'DOI' : 'Source'}</a>` : ''}</td>`;
+  nt.appendChild(tr);
+});
+</script>
+</body>
+</html>
