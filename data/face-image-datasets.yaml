@@ -1,60 +1,60 @@
 # Face image dataset lineage map: where each dataset's images came from.
-# Build:  python build.py data/face-image-datasets.yaml face-dataset-lineage.html
+# Build:  python build.py data/face-image-datasets.yaml face-image-datasets-lineage.html
 #
-# Uses the extended schema: no traced `datasets` column; every box is a dataset under `nodes`
-# (column + y in px), coloured by image origin (kinds), with a status, attrs shown in the
-# panel/table (node_fields), several refs, family bands (lanes) and typed links (link_types).
+# Uses the extended schema: no traced `datasets` column; every box is a dataset under `nodes`,
+# coloured by image origin (kinds), with a status, attrs shown in the panel/table (node_fields),
+# several refs, family bands (lanes) and typed links (link_types).
+# Positions are automatic: `year` picks the column (year_columns), `lane` the family band, and
+# build.py chooses rows (layout.auto_rows). Years come from the Face Dataset Provenance Knowledge
+# Base; approximate or unknown years carry a year_note. Related publications (kind: pub) are linked
+# with `covered` lines, which are not lineage, and can be greyed out or hidden (toggles).
 
 page_title: Face Dataset Lineage Map
 title: Shared provenance of face datasets
 intro: >-
-  Each line shows where a dataset's <b>images</b> came from. 21 of the 34 entries take their images from another dataset, and LFW alone has <b>20 known derivatives</b>, shown here as 5 individual datasets and 2 groups. <b>Six datasets have been withdrawn (dashed borders), and derivatives of four of those are still distributed.</b> RFW, BFW and LAOFIW take only their names from LFW: none of them contains LFW images. Hover or tap a dataset to trace its lineage.
+  Each line shows where a dataset's <b>images</b> came from. 21 of the 35 entries take their images from another dataset,
+  and LFW alone has <b>20 known derivatives</b>, shown here as 5 individual datasets and 2 groups. <b>Six datasets have been
+  withdrawn (dashed borders), and derivatives of four of those are still distributed.</b> RFW, BFW and LAOFIW take only their
+  names from LFW: none of them contains LFW images. Hover or tap a dataset to trace its lineage. Columns give each dataset's
+  <b>release year</b>; boxes on the right are <b>publications that document these datasets</b>, which can be greyed out or
+  hidden.
 svg_title: Lineage graph of face datasets grouped by upstream source
 panel_hint: >-
-  Select a dataset to see its terms, its parents and children, and a link to its primary source.<br><br>Datasets shown with no lines have no upstream source shared with any other dataset here.
+  Select a dataset to see its terms, its parents and children, and a link to its primary source.<br><br>Datasets shown with
+  no lines have no upstream source shared with any other dataset here.
 footer: >-
-  Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the Face Dataset Provenance Knowledge Base in Notion. Status of VGGFace is assumed, not verified.
-node_table_title: Table view (34 entries plus Flickr)
+  Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the Face Dataset Provenance Knowledge
+  Base in Notion. Status of VGGFace is assumed, not verified. Years come from the knowledge base; the few that are approximate
+  or unknown are marked in each dataset's panel.
+node_table_title: Table view (35 entries plus Flickr and 4 publications)
 layout:
   node_width: 168
   node_height: 46
   first_x: 40
-  first_gap: 210
-  col_gap: 220
+  first_gap: 186
+  col_gap: 186
   min_curve: 0
-  width: 1100
-  height: 1224
-columns:
-- ''
-- ''
-- ''
-- ''
-- ''
+  top: 40
+  row_height: 54
+  lane_gap: 12
+  lane_pad_top: 28
+  lane_pad_bottom: 12
+  min_width: 1300
+  year_in_subtitle: true
+  auto_rows: true
 lanes:
-- label: Flickr / YFCC100M family
-  y: 15
-  h: 200
-  label_y: 33
-- label: MS-Celeb-1M family
-  y: 235
-  h: 135
-  label_y: 302
-- label: VGG / CASIA family
-  y: 385
-  h: 180
-  label_y: 475
-- label: News photos & LFW derivatives
-  y: 580
-  h: 385
-  label_y: 600
-- label: Celebrity profiles & mugshots
-  y: 980
-  h: 135
-  label_y: 1052
-- label: No shared upstream
-  y: 1132
-  h: 82
-  label_y: 1148
+- id: flickr
+  label: Flickr / YFCC100M family
+- id: msceleb
+  label: MS-Celeb-1M family
+- id: vgg
+  label: VGG / CASIA family
+- id: lfw
+  label: News photos & LFW derivatives
+- id: celeb
+  label: Celebrity profiles & mugshots
+- id: none
+  label: No shared upstream
 labels: always
 panel: lineage
 kinds:
@@ -74,6 +74,10 @@ kinds:
     label: Text only
     legend: Text only
     color: neutral
+  pub:
+    label: Related publication
+    legend: Related publication
+    color: series-4
 statuses:
   Platform: {}
   Available: {}
@@ -92,7 +96,16 @@ link_types:
     dashed: true
     tag: partly
     label: partly
+  covered:
+    legend: Covered in publication
+    dotted: true
+    quiet: true
+    lineage: false
+    panel_out: Covered in
+    panel_in: Covers
 node_fields:
+- key: year
+  label: Year
 - key: terms
   label: Terms and image rights
 - key: commercial
@@ -102,6 +115,8 @@ node_fields:
 node_table:
 - col: name
   label: Dataset
+- col: year
+  label: Year
 - col: kind
   label: Image origin
 - col: from
@@ -114,6 +129,9 @@ node_table:
 - col: field
   key: consent
   label: Consent
+- col: linked
+  how: covered
+  label: Covered in
 - col: links
   label: Links
 nodes:
@@ -121,8 +139,6 @@ nodes:
   name: Flickr.com
   subtitle: Source platform
   full: Photo-sharing platform
-  column: 0
-  y: 100
   kind: flickr
   status: Platform
   attrs:
@@ -133,12 +149,13 @@ nodes:
   - label: Primary source
     short: Source
     url: https://www.flickr.com/creativecommons
+  lane: flickr
+  year: 2004
+  year_note: 'Not in the knowledge base: Flickr launched in 2004.'
 - id: yfcc
   name: YFCC100M
   subtitle: Available
   full: Yahoo Flickr Creative Commons 100M
-  column: 1
-  y: 60
   kind: flickr
   status: Available
   attrs:
@@ -151,12 +168,12 @@ nodes:
     short: Source
     url: >-
       https://code.flickr.net/2014/10/15/the-ins-and-outs-of-the-yahoo-flickr-100-million-creative-commons-dataset/
+  lane: flickr
+  year: 2014
 - id: ffhq
   name: FFHQ
   subtitle: Available · NC
   full: Flickr-Faces-HQ (NVIDIA)
-  column: 1
-  y: 150
   kind: flickr
   status: Available
   attrs:
@@ -168,12 +185,12 @@ nodes:
   - label: Primary source
     short: Source
     url: https://github.com/NVlabs/ffhq-dataset
+  lane: flickr
+  year: 2019
 - id: mega
   name: MegaFace
   subtitle: ⊘ Withdrawn · NC
   full: MegaFace MF2 (Univ. of Washington)
-  column: 2
-  y: 30
   kind: flickr
   status: Withdrawn
   attrs:
@@ -185,12 +202,12 @@ nodes:
   - label: Primary source
     short: Source
     url: http://megaface.cs.washington.edu/dataset/download_training.html
+  lane: flickr
+  year: 2016
 - id: fairface
   name: FairFace
   subtitle: Available · CC BY label
   full: FairFace (UCLA)
-  column: 2
-  y: 95
   kind: flickr
   status: Available
   attrs:
@@ -201,12 +218,12 @@ nodes:
   - label: Primary source
     short: Source
     url: https://github.com/joojs/fairface
+  lane: flickr
+  year: 2021
 - id: dif
   name: Diversity in Faces
   subtitle: ⊘ Withdrawn
   full: IBM Diversity in Faces (DiF)
-  column: 2
-  y: 160
   kind: flickr
   status: Withdrawn
   attrs:
@@ -218,58 +235,63 @@ nodes:
     short: Source
     url: >-
       https://www.insideprivacy.com/data-privacy/what-the-diversity-in-faces-litigation-means-for-biometric-technologies/
+  lane: flickr
+  year: 2019
 - id: dive
   name: DiveFace
   subtitle: ⚠ Parent withdrawn · NC
   full: DiveFace (BiDA Lab, UAM)
-  column: 3
-  y: 30
   kind: flickr
   status: Parent withdrawn
   attrs:
     terms: >-
-      Non-commercial research for any modification or redistribution. Mostly CC BY-NC-ND images. Ships only lists + a MegaFace rebuild script.
+      Non-commercial research for any modification or redistribution. Mostly CC BY-NC-ND images. Ships only lists + a MegaFace
+      rebuild script.
     commercial: Non-commercial only
     consent: None
   refs:
   - label: Primary source
     short: Source
     url: https://github.com/BiDAlab/DiveFace
+  lane: flickr
+  year: 2020
+  year_note: >-
+    Knowledge-base year. The SensitiveNets preprint (arXiv 1902.00334, February 2019) may have introduced DiveFace earlier;
+    not verified.
 - id: bios
   name: Bias in Bios
   subtitle: Text only · bios
   full: Common Crawl Bios (De-Arteaga et al.)
-  column: 3
-  y: 110
   kind: text
   status: Available
   attrs:
     terms: ~400K biographies scraped from Common Crawl. Terms not checked.
     commercial: Unclear
     consent: None
+  lane: flickr
+  year: 2019
 - id: faircv
   name: FairCVdb
   subtitle: ⚠ Parent withdrawn · NC
   full: FairCVdb (FairCVtest)
-  column: 4
-  y: 70
   kind: flickr
   status: Parent withdrawn
   attrs:
     terms: >-
-      Warranty disclaimer only; no rights granted. Faces from DiveFace (may be embeddings + image list, not pixels); bios from Bias in Bios.
+      Warranty disclaimer only; no rights granted. Faces from DiveFace (may be embeddings + image list, not pixels); bios
+      from Bias in Bios.
     commercial: Non-commercial only
     consent: None
   refs:
   - label: Primary source
     short: Source
     url: https://github.com/BiDAlab/FairCVtest
+  lane: flickr
+  year: 2020
 - id: msceleb
   name: MS-Celeb-1M
   subtitle: ⊘ Withdrawn
   full: Microsoft Celeb 1M
-  column: 1
-  y: 275
   kind: web
   status: Withdrawn
   attrs:
@@ -280,65 +302,66 @@ nodes:
   - label: Primary source
     short: Source
     url: https://www.vice.com/en/article/microsoft-deleted-a-facial-recognition-database-but-its-not-dead/
+  lane: msceleb
+  year: 2016
 - id: rfw
   name: RFW
   subtitle: ⚠ Parent withdrawn · NC
   full: Racial Faces in-the-Wild
-  column: 2
-  y: 250
   kind: web
   status: Parent withdrawn
   attrs:
     terms: >-
-      Non-commercial research; no reproduction or redistribution; apply from an institutional email. Copies only LFW's pair protocol.
+      Non-commercial research; no reproduction or redistribution; apply from an institutional email. Copies only LFW's pair
+      protocol.
     commercial: Non-commercial only
     consent: None
   refs:
   - label: Primary source
     short: Source
     url: http://whdeng.cn/RFW/testing.html
+  lane: msceleb
+  year: 2019
 - id: bupt
   name: BUPT-Balanced/Global
   subtitle: ⚠ Parent withdrawn
   full: BUPT-Balancedface & BUPT-Globalface
-  column: 2
-  y: 310
   kind: web
   status: Parent withdrawn
   attrs:
     terms: Ethnicity-aware training sets (1.3M and 2M images). Terms not checked.
     commercial: Unclear
     consent: None
+  lane: msceleb
+  year: 2020
 - id: casia
   name: CASIA-WebFace
   subtitle: Available
   full: CASIA-WebFace
-  column: 1
-  y: 395
   kind: web
   status: Available
   attrs:
     terms: Released "for training purposes only". Terms and current status not checked.
     commercial: Unclear
     consent: None
+  lane: vgg
+  year: 2014
 - id: vggface
   name: VGGFace
   subtitle: ⊘ Withdrawn (assumed)
   full: VGG Face (Oxford)
-  column: 1
-  y: 450
   kind: web
   status: Withdrawn
   attrs:
     terms: 2.6M web images of 2,622 people. Status assumed withdrawn alongside VGGFace2; not verified.
     commercial: Unclear
     consent: None
+  lane: vgg
+  year: 2015
 - id: vgg2
   name: VGGFace2
   subtitle: ⊘ Withdrawn
   full: VGGFace2 (Oxford)
-  column: 1
-  y: 505
   kind: web
   status: Withdrawn
   attrs:
@@ -349,24 +372,24 @@ nodes:
   - label: Primary source
     short: Source
     url: https://www.robots.ox.ac.uk/~vgg/data/vgg_face2/
+  lane: vgg
+  year: 2018
 - id: demog
   name: DemogPairs
   subtitle: ⚠ Parent withdrawn
   full: DemogPairs (Hupont & Fernández)
-  column: 2
-  y: 440
   kind: web
   status: Parent withdrawn
   attrs:
     terms: 10,800 images of 600 people in 6 balanced groups. Terms not checked.
     commercial: Unclear
     consent: None
+  lane: vgg
+  year: 2019
 - id: bfw
   name: BFW
   subtitle: ⚠ Parent withdrawn · CC BY label
   full: Balanced Faces in the Wild
-  column: 2
-  y: 505
   kind: web
   status: Parent withdrawn
   attrs:
@@ -378,12 +401,12 @@ nodes:
   - label: Primary source
     short: Source
     url: https://ieee-dataport.org/documents/balanced-faces-wild
+  lane: vgg
+  year: 2020
 - id: news
   name: Names & Faces in News
   subtitle: News photos
   full: Yahoo! News captioned photos (Berg et al.)
-  column: 1
-  y: 750
   kind: other
   status: Available
   attrs:
@@ -394,12 +417,12 @@ nodes:
   - label: Primary source
     short: Source
     url: https://adam.harvey.studio/origins-and-endpoints/
+  lane: lfw
+  year: 2004
 - id: lfw
   name: LFW
   subtitle: Available
   full: Labeled Faces in the Wild
-  column: 2
-  y: 750
   kind: other
   status: Available
   attrs:
@@ -411,34 +434,36 @@ nodes:
   - label: Primary source
     short: Source
     url: https://arxiv.org/html/2108.02922v2
+  lane: lfw
+  year: 2007
 - id: lfwa
   name: LFWA / LFWA+
   subtitle: Adds gender & race labels
   full: LFW Attributes (Liu et al., CUHK)
-  column: 3
-  y: 590
   kind: other
   status: Available
   attrs:
     terms: >-
-      LFW images with attribute labels, released alongside CelebA. FairFace used LFWA+ as a comparison set with gender and merged race labels. Terms not checked.
+      LFW images with attribute labels, released alongside CelebA. FairFace used LFWA+ as a comparison set with gender and
+      merged race labels. Terms not checked.
     commercial: Unclear
     consent: None
   refs:
   - label: Primary source
     short: Source
     url: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+  lane: lfw
+  year: 2015
 - id: lfwplus
   name: LFW+
   subtitle: Age, gender, race · NC
   full: LFW+ (Han & Jain, Michigan State)
-  column: 3
-  y: 643
   kind: other
   status: Available
   attrs:
     terms: >-
-      About 15K images (LFW plus additions) with age, gender and race labels. Adds a non-commercial clause LFW itself never had.
+      About 15K images (LFW plus additions) with age, gender and race labels. Adds a non-commercial clause LFW itself never
+      had.
     commercial: Non-commercial only
     consent: None
   refs:
@@ -446,49 +471,53 @@ nodes:
     short: Source
     url: >-
       https://www.researchgate.net/publication/263697688_Age_Gender_and_Race_Estimation_from_Unconstrained_Face_Images
+  lane: lfw
+  year: 2014
 - id: mtfl
   name: MTFL
   subtitle: Landmarks + gender
   full: Multi-Task Facial Landmark dataset
-  column: 3
-  y: 696
   kind: other
   status: Available
   attrs:
     terms: Includes original LFW images with landmarks and attribute labels. Terms not checked.
     commercial: Unclear
     consent: None
+  lane: lfw
+  year: 2014
+  year_note: 'Not in the knowledge base: approximate, from the MTFL paper (Zhang et al., ECCV 2014).'
 - id: smfrd
   name: SMFRD
   subtitle: Edited faces · shared
   full: Simulated Masked Face Recognition Dataset
-  column: 3
-  y: 749
   kind: other
   status: Available
   attrs:
     terms: >-
-      LFW faces edited with synthetic masks and redistributed publicly, with no non-commercial clause. This is the "share edited real faces" case.
+      LFW faces edited with synthetic masks and redistributed publicly, with no non-commercial clause. This is the "share
+      edited real faces" case.
     commercial: Unclear
     consent: None
+  lane: lfw
+  year: 2020
 - id: itwe
   name: ITWE
   subtitle: Available · NC
   full: ITWE (LFW derivative D36 in Peng et al.)
-  column: 3
-  y: 802
   kind: other
   status: Available
   attrs:
     terms: Includes original LFW images; carries a non-commercial clause. Purpose not verified.
     commercial: Non-commercial only
     consent: None
+  lane: lfw
+  year_label: Year unknown
+  place_year: 2015
+  year_note: No year recorded; placed in the 2014–2015 column next to the other LFW derivatives for layout only.
 - id: lfwvar
   name: Aligned / 3D variants (6)
   subtitle: Re-processed images
   full: LFW-a, funneled, deep funneled, crop, LFW3D, Frontalized Faces in the Wild
-  column: 3
-  y: 855
   kind: other
   status: Available
   attrs:
@@ -500,29 +529,36 @@ nodes:
   - label: Primary source
     short: Source
     url: https://arxiv.org/html/2108.02922v2
+  lane: lfw
+  year_label: Years vary
+  place_year: 2015
+  year_note: >-
+    Group of six variants released in different years from 2007 on; placed in the 2014–2015 column for layout only.
 - id: lfwother
   name: Other derivatives (9)
   subtitle: Mostly unlicensed
   full: BLUFR, LFW87, Extended LFW, PubFig83+LFW, five unnamed
-  column: 3
-  y: 908
   kind: other
   status: Available
   attrs:
     terms: >-
-      BLUFR is a protocol with no images. PubFig83+LFW mixes in PubFig, which is non-commercial and URL-only. Two unnamed sets add sensitive labels; one prohibits commercial use.
+      BLUFR is a protocol with no images. PubFig83+LFW mixes in PubFig, which is non-commercial and URL-only. Two unnamed
+      sets add sensitive labels; one prohibits commercial use.
     commercial: Unclear
     consent: None
   refs:
   - label: Primary source
     short: Source
     url: https://arxiv.org/html/2108.02922v2
+  lane: lfw
+  year_label: Years vary
+  place_year: 2015
+  year_note: >-
+    Group of nine derivatives released in different years; placed in the 2014–2015 column for layout only.
 - id: imdb
   name: IMDB-WIKI
   subtitle: Available
   full: IMDB-WIKI (ETH Zurich)
-  column: 1
-  y: 995
   kind: web
   status: Available
   attrs:
@@ -533,12 +569,12 @@ nodes:
   - label: Primary source
     short: Source
     url: https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/
+  lane: celeb
+  year: 2015
 - id: cimdb
   name: Cleaned IMDB
   subtitle: Available
   full: Cleaned IMDB subset (Alvi et al.)
-  column: 2
-  y: 995
   kind: web
   status: Available
   attrs:
@@ -549,41 +585,43 @@ nodes:
   - label: Primary source
     short: Source
     url: https://www.robots.ox.ac.uk/~vgg/data/laofiw/
+  lane: celeb
+  year: 2018
 - id: morph
   name: MORPH-II
   subtitle: Mugshot-style · NC
   full: MORPH Album 2 (UNC Wilmington)
-  column: 1
-  y: 1055
   kind: other
   status: On request
   attrs:
     terms: Non-commercial academic release, separate from commercial edition. 65% African-American men.
     commercial: Non-commercial only
     consent: None
+  lane: celeb
+  year: 2006
+  year_note: 'Not in the knowledge base: approximate, from the MORPH paper (Ricanek & Tesafaye, FG 2006).'
 - id: utk
   name: UTKFace
   subtitle: Available · NC
   full: UTKFace (Univ. of Tennessee)
-  column: 2
-  y: 1055
   kind: web
   status: Available
   attrs:
     terms: >-
-      Non-commercial research only. Images "collected from the Internet"; per FairFace paper, from MORPH, CACD and web search. Untraceable per image.
+      Non-commercial research only. Images "collected from the Internet"; per FairFace paper, from MORPH, CACD and web search.
+      Untraceable per image.
     commercial: Non-commercial only
     consent: None
   refs:
   - label: Primary source
     short: Source
     url: https://susanqq.github.io/UTKFace/
+  lane: celeb
+  year: 2017
 - id: celeba
   name: CelebA
   subtitle: Available · NC
   full: CelebFaces Attributes (CUHK)
-  column: 0
-  y: 1160
   kind: web
   status: Available
   attrs:
@@ -594,29 +632,30 @@ nodes:
   - label: Primary source
     short: Source
     url: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+  lane: none
+  year: 2015
 - id: laofiw
   name: LAOFIW
   subtitle: ⊘ Withdrawn
   full: Labeled Ancestral Origin Faces in the Wild
-  column: 1
-  y: 1160
   kind: web
   status: Withdrawn
   attrs:
     terms: >-
-      Bing Image Search with 43 nationality keywords. Privacy notice only; download links removed. Only 143 images traced to Flickr.
+      Bing Image Search with 43 nationality keywords. Privacy notice only; download links removed. Only 143 images traced
+      to Flickr.
     commercial: Unclear
     consent: None
   refs:
   - label: Primary source
     short: Source
     url: https://www.robots.ox.ac.uk/~vgg/data/laofiw/
+  lane: none
+  year: 2018
 - id: ppb
   name: PPB
   subtitle: Official portraits
   full: Pilot Parliaments Benchmark
-  column: 2
-  y: 1160
   kind: other
   status: On request
   attrs:
@@ -628,29 +667,32 @@ nodes:
   - label: Primary source
     short: Source
     url: https://www.media.mit.edu/projects/gender-shades/overview/
+  lane: none
+  year: 2018
 - id: fhibe
   name: FHIBE
   subtitle: ✓ Consented · eval only
   full: Sony Fair Human-Centric Image Benchmark
-  column: 3
-  y: 1160
   kind: other
   status: Available
   attrs:
     terms: >-
-      10,318 images of 1,981 paid, consenting people from 81 countries (Xiang et al., Nature 2025). Terms of use: fairness/bias evaluation and mitigation only; no training except bias detection or mitigation methods; no race or gender classifiers; no re-identification. Account + terms required. Now hosted by Mozilla Data Collective, which handles consent revocation; old versions must be deleted.
+      10,318 images of 1,981 paid, consenting people from 81 countries (Xiang et al., Nature 2025). Terms of use: fairness/bias
+      evaluation and mitigation only; no training except bias detection or mitigation methods; no race or gender classifiers;
+      no re-identification. Account + terms required. Now hosted by Mozilla Data Collective, which handles consent revocation;
+      old versions must be deleted.
     commercial: Evaluation only
     consent: Informed and revocable
   refs:
   - label: Primary source
     short: Source
     url: https://fairnessbenchmark.ai.sony/data-card/fhibe-datasheet
+  lane: none
+  year: 2025
 - id: ccv2
   name: Casual Conv. v2
   subtitle: ✓ Consented · video
   full: Meta Casual Conversations v2
-  column: 4
-  y: 1160
   kind: other
   status: Available
   attrs:
@@ -661,6 +703,78 @@ nodes:
   - label: Primary source
     short: Source
     url: https://ai.meta.com/datasets/casual-conversations-v2-dataset/
+  lane: none
+  year: 2023
+- id: cfd
+  name: Chicago Face Database
+  subtitle: Studio photos · NC
+  full: 'Chicago Face Database (Univ. of Chicago): CFD, CFD-MR, CFD-INDIA'
+  kind: other
+  status: On request
+  attrs:
+    terms: >-
+      Standardized high-resolution photos of ~827 people aged 17–65: CFD (597, self-identified Asian, Black, Latino or White),
+      CFD-MR (88 multiracial) and CFD-INDIA (142, recruited in Delhi). Non-commercial scientific research only; no redistribution,
+      including to cloud AI image tools; no identifying or contacting models, including by face recognition; at most four
+      images in publications without permission. Download link emailed on request. Per Ma, Correll & Wittenbrink 2015, the
+      original models were recruited by email through the Chicago Booth research lab, plus amateur actors via snowball sampling;
+      each signed a consent/release form allowing use of their photos for research purposes and was paid $20 for a ~20-minute
+      session. The paper covers only the first 158 Black and White models; no withdrawal mechanism is described.
+    commercial: Non-commercial only
+    consent: Signed release, research use
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://www.chicagofaces.org/
+  lane: none
+  year: 2015
+- id: harvey_ea
+  name: Exposing.ai
+  subtitle: Harvey & LaPlace · website
+  full: 'Harvey, A. & LaPlace, J. Exposing.ai: investigations into face and biometric image training datasets'
+  lane: flickr
+  refs:
+  - label: Website
+    short: Web
+    url: https://exposing.ai/
+  kind: pub
+- id: pena2023
+  name: Peña et al. 2023
+  subtitle: 2023 · SN Computer Science
+  full: >-
+    Peña, Serna, Morales, Fierrez, Ortega, Herrarte & Alcantara (2023). Human-Centric Multimodal Machine Learning: Recent
+    Advances and Testbed on AI-Based Recruitment. SN Computer Science 4, 434.
+  lane: vgg
+  refs:
+  - label: Paper
+    short: Paper
+    url: https://link.springer.com/article/10.1007/s42979-023-01733-0
+  - label: arXiv
+    short: arXiv
+    url: https://arxiv.org/abs/2302.10908
+  kind: pub
+- id: harvey_oe
+  name: Origins and Endpoints
+  subtitle: Harvey · essay
+  full: Harvey, A. Origins and Endpoints
+  lane: lfw
+  refs:
+  - label: Essay
+    short: Web
+    url: https://adam.harvey.studio/origins-and-endpoints/
+  kind: pub
+- id: peng2021
+  name: Peng et al. 2021
+  subtitle: 2021 · NeurIPS D&B
+  full: >-
+    Peng, K., Mathur, A. & Narayanan, A. (2021). Mitigating Dataset Harms Requires Stewardship: Lessons from 1000 Papers.
+    NeurIPS Datasets and Benchmarks.
+  lane: lfw
+  refs:
+  - label: arXiv
+    short: arXiv
+    url: https://arxiv.org/abs/2108.02922
+  kind: pub
 links:
 - from: flickr
   to: yfcc
@@ -735,3 +849,111 @@ links:
   to: utk
   how: partly
   label_dy: -1
+- from: mega
+  to: harvey_ea
+  how: covered
+- from: dive
+  to: harvey_ea
+  how: covered
+- from: laofiw
+  to: harvey_ea
+  how: covered
+- from: morph
+  to: pena2023
+  how: covered
+- from: imdb
+  to: pena2023
+  how: covered
+- from: celeba
+  to: pena2023
+  how: covered
+- from: cimdb
+  to: pena2023
+  how: covered
+- from: laofiw
+  to: pena2023
+  how: covered
+- from: ppb
+  to: pena2023
+  how: covered
+- from: dif
+  to: pena2023
+  how: covered
+- from: rfw
+  to: pena2023
+  how: covered
+- from: demog
+  to: pena2023
+  how: covered
+- from: bios
+  to: pena2023
+  how: covered
+- from: faircv
+  to: pena2023
+  how: covered
+- from: dive
+  to: pena2023
+  how: covered
+- from: bupt
+  to: pena2023
+  how: covered
+- from: bfw
+  to: pena2023
+  how: covered
+- from: fairface
+  to: pena2023
+  how: covered
+- from: news
+  to: harvey_oe
+  how: covered
+- from: lfw
+  to: harvey_oe
+  how: covered
+- from: lfw
+  to: peng2021
+  how: covered
+- from: lfwplus
+  to: peng2021
+  how: covered
+- from: lfwa
+  to: peng2021
+  how: covered
+- from: mtfl
+  to: peng2021
+  how: covered
+- from: smfrd
+  to: peng2021
+  how: covered
+- from: itwe
+  to: peng2021
+  how: covered
+- from: lfwvar
+  to: peng2021
+  how: covered
+- from: lfwother
+  to: peng2021
+  how: covered
+toggles:
+- label: Related publications
+  kinds:
+  - pub
+  default: show
+year_columns:
+- label: 2006 and earlier
+  until: 2006
+- label: 2007–2013
+  until: 2013
+- label: 2014–2015
+  until: 2015
+- label: 2016–2017
+  until: 2017
+- label: '2018'
+  until: 2018
+- label: '2019'
+  until: 2019
+- label: '2020'
+  until: 2020
+- label: 2021 and later
+- label: Related publications
+  kinds:
+  - pub

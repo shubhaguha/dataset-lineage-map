@@ -45,6 +45,7 @@ h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em
 .sw { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; display: inline-block; }
 .ln { width: 26px; height: 0; border-top: 1.75px solid var(--muted); display: inline-block; }
 .ln.dash { border-top-style: dashed; }
+.ln.dot { border-top-style: dotted; border-top-width: 2px; }
 .tracer { max-width: 1500px; margin: 0 auto 14px; padding: 14px 16px 12px; }
 .tracer-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
 .tracer-head h2 { font-size: 17px; font-weight: 600; margin: 0; }
@@ -69,6 +70,19 @@ svg { display: block; width: 100%; height: auto; }
 .lane-label { font-size: 11px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
 .edge { fill: none; stroke: var(--muted); stroke-width: 1.5; transition: opacity .15s, stroke .15s; }
 .edge.dashed { stroke-dasharray: 5 4; }
+.edge.dotted { stroke-dasharray: 1.5 3.5; stroke-linecap: round; }
+.edge.quiet { opacity: 0.3; }
+svg.focusing .edge.quiet.on { opacity: 1; }
+.col-label { font-size: 11px; fill: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+.col-sep { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 4; }
+.tg-grey { opacity: 0.25; }
+svg.focusing .node.tg-grey:not(.dim), svg.focusing .edge.tg-grey.on { opacity: 0.6; }
+tr.tg-grey { opacity: 0.45; }
+.tg-hide { display: none; }
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; margin-right: 14px; }
+.seg button { font: inherit; font-size: 12.5px; padding: 4px 11px; border: 0; background: var(--surface-1); color: var(--text-secondary); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--axis); }
+.seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--page); }
 .node.dashed rect.body { stroke-dasharray: 6 4; }
 .box-dash { width: 18px; height: 12px; border: 1.75px dashed var(--text-secondary); border-radius: 3px; display: inline-block; }
 .chain { font-size: 13px; line-height: 1.6; }
@@ -135,6 +149,7 @@ td.sz { font-variant-numeric: tabular-nums; white-space: nowrap; }
     </div>
   </section>
 
+  <div class="toolbar" id="toolbar" hidden></div>
   <div class="layout">
     <div class="card chart"><svg id="viz" role="img" aria-labelledby="vizTitle"><title id="vizTitle"></title></svg></div>
     <aside class="card panel" id="panel" aria-live="polite">
@@ -175,12 +190,16 @@ const DSLIST = DATA.datasets || [];
 const NODES = [...(DATA.papers || []), ...(DATA.nodes || [])];
 const D = [
   ...DSLIST.map((d, i) => ({ id: d.id, name: d.name, sub: d.source || '', full: d.source_full || d.source || '', c: 0, y: posY(d, i), k: d.kind, refs: refsOf(d, false), isDs: true })),
-  ...NODES.map(p => { const k = p.kind || 'paper'; return { id: p.id, name: p.name, sub: p.subtitle || '', full: p.full || p.name, c: p.column, y: posY(p), k, refs: refsOf(p, k === 'paper'), note: p.note, status: p.status, attrs: p.attrs || {}, own: p.created && p.created.length ? p.created.map(t => ['', t]) : undefined }; })
+  ...NODES.map(p => { const k = p.kind || 'paper'; return { id: p.id, name: p.name, sub: p.subtitle || '', full: p.full || p.name, c: p.column, y: posY(p), k, refs: refsOf(p, k === 'paper'), note: p.note, status: p.status, attrs: p.attrs || {}, own: p.created && p.created.length ? p.created.map(t => ['', t]) : undefined, year: p.year_label || (p.year != null ? String(p.year) : ''), yearNote: p.year_note }; })
 ];
+D.forEach(d => { if (d.year) { if (d.attrs) d.attrs.year = d.year; if (LAY.year_in_subtitle) d.sub = d.year + (d.sub ? ' · ' + d.sub : ''); } });
 D.forEach((d, i) => { const src = i < DSLIST.length ? DSLIST[i] : NODES[i - DSLIST.length]; d.x = src.x != null ? src.x : cx(d.c); });
 const DS = Object.fromEntries(DSLIST.map(d => [d.id, { name: d.title || d.name, aka: d.aka || '', real: d.real || '', path: d.path || '', sizes: d.sizes || '', get: d.get || '', note: d.note }]));
-const E = DATA.links.map(l => ({ s: l.from, t: l.to, l: l.label || '', ds: l.datasets || [], how: l.how || Object.keys(LTYPE)[0], n: l.note, lt: l.label_pos, ly: l.label_dy, off: l.offset }));
+const E = DATA.links.map(l => ({ lin: (LTYPE[l.how || Object.keys(LTYPE)[0]] || {}).lineage !== false, s: l.from, t: l.to, l: l.label || '', ds: l.datasets || [], how: l.how || Object.keys(LTYPE)[0], n: l.note, lt: l.label_pos, ly: l.label_dy, off: l.offset }));
 const tagOf = e => (LTYPE[e.how] || {}).tag || '';
+const TOGGLED = new Set((DATA.toggles || []).flatMap(t => t.kinds));
+let TOGS = [];
+const hiddenEdge = i => [E[i].s, E[i].t].some(id => { const t = TOGS.find(t => t.kinds.has(byId[id].k)); return t && t.mode === 'hide'; });
 
 // page text and legend
 document.title = DATA.page_title || DATA.title;
@@ -193,7 +212,7 @@ document.getElementById('foot').innerHTML = DATA.footer || '';
   const used = new Set(D.map(d => d.k)), usedHow = new Set(E.map(e => e.how)), usedSt = new Set(D.map(d => d.status));
   const sw = k => `<span><i class="sw" style="border-color:var(${KIND[k].v});background:color-mix(in srgb,var(${KIND[k].v}) 14%,transparent)"></i>${KIND[k].legend}</span>`;
   let html = Object.keys(KIND).filter(k => used.has(k)).map(sw).join('');
-  html += Object.entries(LTYPE).filter(([k]) => usedHow.has(k) || k === 'paper').map(([k, t]) => `<span><i class="ln${t.dashed ? ' dash' : ''}"></i>${t.legend}</span>`).join('');
+  html += Object.entries(LTYPE).filter(([k]) => usedHow.has(k) || k === 'paper').map(([k, t]) => `<span><i class="ln${t.dashed ? ' dash' : t.dotted ? ' dot' : ''}"></i>${t.legend}</span>`).join('');
   html += Object.entries(STATUS).filter(([k, s]) => s.dashed && usedSt.has(k)).map(([k, s]) => `<span><i class="box-dash"></i>${s.legend || k}</span>`).join('');
   document.getElementById('legend').innerHTML = html;
   if (!DSLIST.length) document.getElementById('tracer').style.display = 'none';
@@ -202,15 +221,16 @@ document.getElementById('foot').innerHTML = DATA.footer || '';
 })();
 
 const byId = Object.fromEntries(D.map(d => [d.id, d]));
-const parents = {}, children = {};
-D.forEach(d => { parents[d.id] = []; children[d.id] = []; });
-E.forEach((e, i) => { parents[e.t].push(i); children[e.s].push(i); });
+const parents = {}, children = {}, xin = {}, xout = {};
+D.forEach(d => { parents[d.id] = []; children[d.id] = []; xin[d.id] = []; xout[d.id] = []; });
+E.forEach((e, i) => { (e.lin ? parents : xin)[e.t].push(i); (e.lin ? children : xout)[e.s].push(i); });
 
 const svgNS = 'http://www.w3.org/2000/svg';
 const svg = document.getElementById('viz');
 const VW = LAY.width || Math.max(...D.map(d => d.x)) + W + 16, VH = LAY.height || Math.max(...D.map(d => d.y)) + H + 30;
 svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
 if (DATA.labels === 'always') svg.classList.add('alllabels');
+if (LAY.min_width) { svg.style.minWidth = LAY.min_width + 'px'; svg.parentNode.style.overflowX = 'auto'; }
 const css = getComputedStyle(document.querySelector('.viz-root'));
 const el = (t, a, parent = svg) => { const e = document.createElementNS(svgNS, t); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -220,6 +240,13 @@ const mk = el('marker', { id:'arr', viewBox:'0 0 10 10', refX:'9', refY:'5', mar
 el('path', { d:'M0,0 L10,5 L0,10 z', fill:'var(--muted)' }, mk);
 
 if (DATA.lanes) {
+  if (DATA.columns.some(c => c)) {
+    const y0 = Math.min(...DATA.lanes.map(l => l.y)), y1 = Math.max(...DATA.lanes.map(l => l.y + l.h));
+    COLS.forEach((c, i) => {
+      if (i) el('line', { class:'col-sep', x1:c.x - (c.x - COLS[i - 1].x - W) / 2, x2:c.x - (c.x - COLS[i - 1].x - W) / 2, y1:y0 - 22, y2:y1, 'data-col':i });
+      const t = el('text', { class:'col-label', x:c.x, y:y0 - 10, 'data-col':i }); t.textContent = c.label;
+    });
+  }
   DATA.lanes.forEach(l => {
     el('rect', { class:'lane-band', x:10, y:l.y, width:VW - 20, height:l.h, rx:10 });
     const t = el('text', { class:'lane-label', x:LAY.first_x, y:l.label_y != null ? l.label_y : l.y + 18 }); t.textContent = l.label;
@@ -236,9 +263,11 @@ const edgeEls = [], labelEls = [];
 const gEdges = el('g', {}), gLabels = el('g', {});
 E.forEach((e, i) => {
   const s = byId[e.s], t = byId[e.t], off = e.off || 0;
-  const x1 = s.x + W, y1 = s.y + H/2 + off/2, x2 = t.x - 2, y2 = t.y + H/2 + off, dx = Math.max(LAY.min_curve, (x2 - x1) / 2);
-  const d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
-  const p = el('path', { class:'edge' + ((LTYPE[e.how] || {}).dashed ? ' dashed' : ''), d, 'marker-end':'url(#arr)' }, gEdges);
+  const lt = LTYPE[e.how] || {}, vert = s.x === t.x;
+  let x1 = s.x + W, y1 = s.y + H/2 + off/2, x2 = t.x - 2, y2 = t.y + H/2 + off, dx = Math.max(LAY.min_curve, (x2 - x1) / 2), d;
+  if (vert) { x1 = x2 = s.x + W/2 + off; y1 = s.y + H; y2 = t.y - 2; dx = 0; d = `M${x1},${y1} L${x2},${y2}`; }
+  else d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+  const p = el('path', { class:'edge' + (lt.dashed ? ' dashed' : '') + (lt.dotted ? ' dotted' : '') + (lt.quiet ? ' quiet' : ''), d, 'marker-end':'url(#arr)' }, gEdges);
   const hit = el('path', { class:'edge-hit', d }, gEdges);
   const tt = el('title', {}, hit); tt.textContent = `${s.name} → ${t.name}${e.l ? ': ' + e.l : ''}\n${e.n || ''}`;
   hit.addEventListener('mouseenter', () => { if (!pinned && !activeDs) focusEdges(new Set([i])); });
@@ -248,7 +277,7 @@ E.forEach((e, i) => {
   const u = e.lt ?? .5, m = 1 - u;
   const lx = m*m*m*x1 + 3*m*m*u*(x1+dx) + 3*m*u*u*(x2-dx) + u*u*u*x2;
   const ly = m*m*m*y1 + 3*m*m*u*y1 + 3*m*u*u*y2 + u*u*u*y2;
-  const lb = el('text', { class:'edge-label', x:lx, y:ly - 4 + (e.ly || 0), 'text-anchor':'middle' }, gLabels);
+  const lb = el('text', vert ? { class:'edge-label', x:x1 + 6, y:(y1 + y2) / 2 + 4 + (e.ly || 0) } : { class:'edge-label', x:lx, y:ly - 4 + (e.ly || 0), 'text-anchor':'middle' }, gLabels);
   lb.textContent = e.l || (LTYPE[e.how] || {}).label || ''; lb.dataset.i = i; labelEls.push(lb);
 });
 
@@ -289,7 +318,8 @@ function focusNode(id) {
   // edges on any path through this node: ancestors' edges into the lineage + descendants
   const up = walk(id, 'up'), down = walk(id, 'down'), keep = new Set([id, ...up, ...down]);
   const es = new Set();
-  E.forEach((e, i) => { if ((keep.has(e.s) && keep.has(e.t)) && ((up.has(e.s) || e.s === id) && (up.has(e.t) || e.t === id) || (down.has(e.t) || e.t === id) && (down.has(e.s) || e.s === id))) es.add(i); });
+  E.forEach((e, i) => { if (e.lin && (keep.has(e.s) && keep.has(e.t)) && ((up.has(e.s) || e.s === id) && (up.has(e.t) || e.t === id) || (down.has(e.t) || e.t === id) && (down.has(e.s) || e.s === id))) es.add(i); });
+  [...xin[id], ...xout[id]].forEach(i => { if (!hiddenEdge(i)) es.add(i); });
   focusEdges(es);
   renderNode(id);
 }
@@ -327,7 +357,18 @@ const hintHTML = panel.innerHTML;
 const dsLink = k => `<span class="ds" data-ds="${k}">${esc(DS[k].name)}</span>`;
 function bindDs() { panel.querySelectorAll('.ds').forEach(s => s.addEventListener('click', () => showDs(s.dataset.ds))); }
 const statusChip = d => d.status ? `<span class="chip">${STATUS[d.status] && STATUS[d.status].badge ? STATUS[d.status].badge + ' ' : ''}${esc(d.status)}</span>` : '';
-const fieldsHTML = d => FIELDS.filter(f => f.panel !== false && d.attrs[f.key] != null).map(f => `<div class="k">${esc(f.label)}</div><p>${esc(d.attrs[f.key])}</p>`).join('');
+const fieldsHTML = d => FIELDS.filter(f => f.panel !== false && d.attrs[f.key] != null).map(f => `<div class="k">${esc(f.label)}</div><p>${esc(d.attrs[f.key])}${f.key === 'year' && d.yearNote ? `<br><span class="from">${esc(d.yearNote)}</span>` : ''}</p>`).join('');
+const crossHTML = id => {
+  // non-lineage link types (e.g. 'covered in publication'), grouped by type and direction
+  const out = [];
+  Object.entries(LTYPE).filter(([, t]) => t.lineage === false).forEach(([how, t]) => {
+    const o = xout[id].filter(i => E[i].how === how && !hiddenEdge(i)).map(i => esc(byId[E[i].t].name));
+    const n = xin[id].filter(i => E[i].how === how && !hiddenEdge(i)).map(i => esc(byId[E[i].s].name));
+    if (o.length) out.push(`<div class="k">${esc(t.panel_out || t.legend)}</div><p>${o.join(', ')}</p>`);
+    if (n.length) out.push(`<div class="k">${esc(t.panel_in || t.legend)} (${n.length})</div><p>${n.join(', ')}</p>`);
+  });
+  return out.join('');
+};
 const refsHTML = d => `<div class="links">${d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)} ↗</a>`).join('')}</div>`;
 function chainUp(id, seen = new Set()) {
   // longest path back to a root, for the provenance chain line
@@ -346,11 +387,13 @@ function renderNode(id) {
   if (DATA.panel === 'lineage') {
     // dataset-to-dataset maps: attributes, provenance chain, parents, all descendants
     const chain = chainUp(id), down = [...walk(id, 'down')];
+    if (TOGGLED.has(d.k) && !inc.length && !down.length) { panel.innerHTML = `${head}${fieldsHTML(d)}${crossHTML(id)}${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}${refsHTML(d)}`; return; }
     panel.innerHTML = `${head}
     ${fieldsHTML(d)}
     ${chain.length > 1 ? `<div class="k">Provenance chain</div><p class="chain">${chain.map(k => esc(byId[k].name)).join(' → ')}</p>` : ''}
     <div class="k">Built from</div><p>${inc.length ? inc.map(e => esc(byId[e.s].name) + (tagOf(e) ? ` (${esc(tagOf(e))})` : '')).join(', ') : 'No upstream dataset in this map'}</p>
     <div class="k">Downstream</div><p>${down.length ? down.map(k => esc(byId[k].name)).join(', ') : 'None in this map'}</p>
+    ${crossHTML(id)}
     ${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}
     ${refsHTML(d)}`;
     return;
@@ -416,14 +459,50 @@ const cell = (c, d) => {
   if (c.col === 'field') return esc(d.attrs[c.key] != null ? d.attrs[c.key] : '');
   if (c.col === 'from') return parents[d.id].map(i => E[i].l ? `${esc(E[i].l)} (${esc(byId[E[i].s].name)}${tagOf(E[i]) ? ', ' + esc(tagOf(E[i])) : ''})` : esc(byId[E[i].s].name) + (tagOf(E[i]) ? ` (${esc(tagOf(E[i]))})` : '')).join(E.some(e => e.l) ? '; ' : ', ') || '—';
   if (c.col === 'to') return children[d.id].map(i => E[i].l ? `${esc(E[i].l)} (${esc(byId[E[i].t].name)})` : esc(byId[E[i].t].name)).join(E.some(e => e.l) ? '; ' : ', ') || '—';
+  if (c.col === 'year') return esc(d.year || '');
+  if (c.col === 'linked') return [...xout[d.id].filter(i => E[i].how === c.how).map(i => E[i].t), ...xin[d.id].filter(i => E[i].how === c.how).map(i => E[i].s)].map(k => `<span data-node="${esc(k)}">${esc(byId[k].name)}</span>`).join(', ') || '—';
   if (c.col === 'links') return d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.short || r.label)}</a>`).join(' · ');
   return '';
 };
+const rowEls = {};
 D.forEach(d => {
   const tr = document.createElement('tr');
   tr.innerHTML = NCOLS.map(c => `<td>${cell(c, d)}</td>`).join('');
-  nt.appendChild(tr);
+  nt.appendChild(tr); rowEls[d.id] = tr;
 });
+
+// toggles: show / grey out / hide groups of node kinds (with their links, table rows and panel mentions)
+TOGS = (DATA.toggles || []).map(t => ({ ...t, kinds: new Set(t.kinds), mode: t.default || 'show' }));
+function applyToggles() {
+  const mode = k => { const t = TOGS.find(t => t.kinds.has(k)); return t ? t.mode : 'show'; };
+  const nm = id => mode(byId[id].k);
+  D.forEach(d => { const m = nm(d.id); [nodeEls[d.id], rowEls[d.id]].forEach(x => { x.classList.toggle('tg-grey', m === 'grey'); x.classList.toggle('tg-hide', m === 'hide'); }); });
+  E.forEach((e, i) => { const m = [nm(e.s), nm(e.t)].includes('hide') ? 'hide' : [nm(e.s), nm(e.t)].includes('grey') ? 'grey' : 'show'; [edgeEls[i], edgeEls[i].nextSibling, labelEls[i]].forEach(x => { x.classList.toggle('tg-grey', m === 'grey'); x.classList.toggle('tg-hide', m === 'hide'); }); });
+  // in-table mentions of hidden nodes
+  nt.querySelectorAll('[data-node]').forEach(s => s.classList.toggle('tg-hide', nm(s.dataset.node) === 'hide'));
+  // shrink the drawing when whole columns are hidden
+  const vis = D.filter(d => nm(d.id) !== 'hide'), w = LAY.width || Math.max(...vis.map(d => d.x)) + W + 16;
+  svg.setAttribute('viewBox', `0 0 ${w} ${VH}`);
+  svg.querySelectorAll('rect.lane-band').forEach(r => r.setAttribute('width', w - 20));
+  svg.querySelectorAll('[data-col]').forEach(x => x.classList.toggle('tg-hide', COLS[+x.dataset.col].x >= w));
+  if (LAY.min_width) svg.style.minWidth = Math.round(LAY.min_width * w / VW) + 'px';
+  if (pinned) renderNode(pinned);
+}
+if (TOGS.length) {
+  const bar = document.getElementById('toolbar'); bar.hidden = false;
+  TOGS.forEach(t => {
+    const lab = document.createElement('span'); lab.className = 'lbl'; lab.textContent = t.label; bar.appendChild(lab);
+    const seg = document.createElement('span'); seg.className = 'seg'; seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', t.label);
+    [['show', 'Show'], ['grey', 'Grey out'], ['hide', 'Hide']].forEach(([m, txt]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; b.dataset.m = m;
+      b.setAttribute('aria-pressed', String(t.mode === m));
+      b.addEventListener('click', () => { t.mode = m; seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.m === m))); applyToggles(); });
+      seg.appendChild(b);
+    });
+    bar.appendChild(seg);
+  });
+  applyToggles();
+}
 </script>
 </body>
 </html>

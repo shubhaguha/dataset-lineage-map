@@ -62,6 +62,170 @@ def load(path, _seen=()):
     return base
 
 
+def place(doc):
+    """Auto-layout for maps with `year_columns` (optional; does nothing otherwise).
+
+    Each node gets a column from its `year` (or `place_year` when the year is a
+    range or unknown): the first year column whose `until` is >= the year, or a
+    column listing the node's kind under `kinds`. A column without `until` or
+    `kinds` takes every later year. Within each lane (`lane:` = a lanes[].id) the
+    nodes of a column are stacked in file order, and lane bands are sized to fit.
+    Nodes that already have `column` and `y` keep them.
+    """
+    yc = doc.get("year_columns")
+    if not yc:
+        return doc, []
+    errors = []
+    lay = {"node_height": 46, "top": 52, "row_height": 58, "lane_gap": 14,
+           "lane_pad_top": 28, "lane_pad_bottom": 12, **(doc.get("layout") or {})}
+    doc["columns"] = [c.get("label", "") for c in yc]
+
+    def column_for(n):
+        kind = n.get("kind")
+        for i, c in enumerate(yc):
+            if kind in (c.get("kinds") or []):
+                return i
+        year = n.get("place_year", n.get("year"))
+        if not isinstance(year, int):
+            return None
+        for i, c in enumerate(yc):
+            if c.get("kinds"):
+                continue
+            if c.get("until") is None or year <= c["until"]:
+                return i
+        return None
+
+    lanes = doc.get("lanes") or []
+    lane_ids = [l.get("id") for l in lanes]
+    cells = {}
+    for n in doc.get("nodes") or []:
+        where = f"nodes ({n.get('id', '?')})"
+        if n.get("column") is None:
+            c = column_for(n)
+            if c is None:
+                errors.append(f"{where}: needs an integer year or place_year matching a year column")
+                continue
+            n["column"] = c
+        if n.get("y") is None:
+            if n.get("lane") not in lane_ids:
+                errors.append(f"{where}: lane must be one of {lane_ids}")
+                continue
+            cells.setdefault((n["lane"], n["column"]), []).append(n)
+    rows = {}  # node id -> row index within its lane
+    for (lid, _), v in cells.items():
+        for i, n in enumerate(v):
+            rows[n["id"]] = i
+    if lay.get("auto_rows"):
+        rows = optimise_rows(doc, cells, rows, lay)
+    y = lay["top"]
+    for l in lanes:
+        members = [n for (lid, _), v in cells.items() if lid == l.get("id") for n in v]
+        stack = max([rows[n["id"]] + 1 for n in members] or [1])
+        if l.get("y") is None:
+            l["y"] = y
+            l["h"] = lay["lane_pad_top"] + (stack - 1) * lay["row_height"] + lay["node_height"] + lay["lane_pad_bottom"]
+            l.setdefault("label_y", l["y"] + 18)
+        for n in members:
+            n["y"] = l["y"] + lay["lane_pad_top"] + rows[n["id"]] * lay["row_height"]
+        y = l["y"] + l["h"] + lay["lane_gap"]
+    if lanes and not (doc.get("layout") or {}).get("height"):
+        doc.setdefault("layout", {})["height"] = max(l["y"] + l["h"] for l in lanes) + 10
+    return doc, errors
+
+
+def _col_x(lay, c):
+    return lay["first_x"] + (0 if c == 0 else lay["first_gap"] + (c - 1) * lay["col_gap"])
+
+
+def optimise_rows(doc, cells, rows, lay):
+    """Choose a row per node (within its lane and column) so that lineage links do
+    not pass behind other boxes, using the same curves as the renderer. Local
+    search from file order; deterministic. A node with `lane_row` is pinned."""
+    W, H, RH = lay.get("node_width", 170), lay["node_height"], lay["row_height"]
+    lt = doc.get("link_types") or {}
+    nodes = {n["id"]: n for v in cells.values() for n in v}
+    links = [(l["from"], l["to"]) for l in doc.get("links") or []
+             if (lt.get(l.get("how")) or {}).get("lineage", True) is not False
+             and l["from"] in nodes and l["to"] in nodes and nodes[l["from"]]["lane"] == nodes[l["to"]]["lane"]]
+    for v in cells.values():
+        for n in v:
+            if n.get("lane_row") is not None:
+                rows[n["id"]] = n["lane_row"]
+
+    def cost(lane, r):
+        ids = [i for i in nodes if nodes[i]["lane"] == lane]
+        box = {i: (_col_x(lay, nodes[i]["column"]), r[i] * RH) for i in ids}
+        c = 0.0
+        for a, b in links:
+            if nodes[a]["lane"] != lane:
+                continue
+            (xa, ya), (xb, yb) = box[a], box[b]
+            if xa == xb:  # vertical link: target must sit right below
+                c += (yb - ya) / RH if yb > ya else 1000
+                c += 50 * sum(1 for i in ids if box[i][0] == xa and ya < box[i][1] < yb)
+                continue
+            if xa > xb:
+                continue
+            x1, y1, x2, y2 = xa + W, ya + H / 2, xb - 2, yb + H / 2
+            dx = max(lay.get("min_curve", 40), (x2 - x1) / 2)
+            hit = set()
+            for k in range(1, 80):
+                u = k / 80; m = 1 - u
+                px = m**3 * x1 + 3 * m * m * u * (x1 + dx) + 3 * m * u * u * (x2 - dx) + u**3 * x2
+                py = m**3 * y1 + 3 * m * m * u * y1 + 3 * m * u * u * y2 + u**3 * y2
+                for i in ids:
+                    if i not in (a, b):
+                        bx, by = box[i]
+                        if bx - 4 <= px <= bx + W + 4 and by - 3 <= py <= by + H + 3:
+                            hit.add(i)
+            c += 100 * len(hit) + abs(y2 - y1) / RH * 0.5
+        return c + 3 * max(r[i] for i in ids) + 0.05 * sum(r[i] for i in ids)
+
+    import random
+    rng = random.Random(0)
+    for lane in sorted({n["lane"] for n in nodes.values()}, key=str):
+        ids = [i for i in nodes if nodes[i]["lane"] == lane]
+        free = [i for i in ids if nodes[i].get("lane_row") is None]
+        R = max(len(v) for (lid, _), v in cells.items() if lid == lane) + 2
+        starts = [dict(rows)]
+        for _ in range(int(lay.get("auto_rows_restarts", 24))):  # random row orders within each column
+            st = dict(rows)
+            for (lid, _), v in cells.items():
+                if lid == lane:
+                    fr = [n["id"] for n in v if n["id"] in free]
+                    slots = sorted(st[i] for i in fr)
+                    rng.shuffle(fr)
+                    st.update(zip(fr, slots))
+            starts.append(st)
+        best_rows, best_cost = None, None
+        for cur in starts:
+            cur_cost = cost(lane, cur)
+            improved = True
+            while improved:
+                improved = False
+                for i in free:
+                    for row in range(R):
+                        if row == cur[i]:
+                            continue
+                        trial = dict(cur)
+                        other = [j for j in ids if j != i and nodes[j]["column"] == nodes[i]["column"] and trial[j] == row]
+                        if other and other[0] not in free:
+                            continue
+                        for j in other:
+                            trial[j] = cur[i]
+                        trial[i] = row
+                        lo = min(trial[k] for k in ids)  # keep the top row used
+                        for k in ids:
+                            trial[k] -= lo
+                        c = cost(lane, trial)
+                        if c < cur_cost - 1e-9:
+                            cur, cur_cost, improved = trial, c, True
+            if best_cost is None or cur_cost < best_cost - 1e-9:
+                best_rows, best_cost = cur, cur_cost
+        rows = best_rows
+    return rows
+
+
 def validate(doc):
     """Return (errors, warnings) as lists of strings."""
     errors, warnings = [], []
@@ -167,11 +331,24 @@ def validate(doc):
         if l.get("from") in ds_ids and l["from"] not in (l.get("datasets") or []):
             warnings.append(f"{where}: starts at dataset '{l['from']}' but doesn't list it in datasets")
         pf, pt = pos.get(l.get("from")), pos.get(l.get("to"))
-        if pf and pt and pf[0] >= pt[0]:
-            warnings.append(f"{where}: doesn't run left to right")
+        if pf and pt and (pf[0] > pt[0] or (pf[0] == pt[0] and pt[1] <= pf[1])):
+            warnings.append(f"{where}: doesn't run left to right (or downwards within a column)")
+        elif pf and pt and pf[0] == pt[0]:
+            between = [i for i, (x, y) in pos.items() if x == pf[0] and pf[1] < y < pt[1]]
+            if between:
+                warnings.append(f"{where}: vertical link passes behind {between}")
         lp = l.get("label_pos")
         if lp is not None and not 0 <= lp <= 1:
             errors.append(f"{where}: label_pos must be between 0 and 1")
+
+    for n, t in enumerate(doc.get("toggles") or []):
+        if not t.get("label") or not t.get("kinds"):
+            errors.append(f"toggles[{n}]: needs label and kinds")
+        for k in t.get("kinds") or []:
+            if k not in kinds:
+                errors.append(f"toggles[{n}]: unknown kind '{k}'")
+        if t.get("default", "show") not in ("show", "grey", "hide"):
+            errors.append(f"toggles[{n}]: default must be show, grey or hide")
 
     for k in sorted(ds_ids - used_ds - {None}):
         warnings.append(f"dataset '{k}' is not used by any link")
@@ -194,8 +371,11 @@ def main():
     ap.add_argument("--check", action="store_true", help="validate only, don't write")
     args = ap.parse_args()
 
-    doc = load(args.data)
-    errors, warnings = validate(doc)
+    doc, errors = place(load(args.data))
+    if not errors:
+        errors, warnings = validate(doc)
+    else:
+        warnings = []
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)
     for e in errors:
