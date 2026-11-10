@@ -12,7 +12,7 @@
 page_title: Face Dataset Lineage Map
 title: Shared provenance of face datasets
 intro: >-
-  Each line shows where a dataset's <b>images</b> came from. 21 of the 35 entries take their images from another dataset,
+  Each line shows where a dataset's <b>images</b> came from. 21 of the 38 entries take their images from another dataset,
   and LFW alone has <b>20 known derivatives</b>, shown here as 5 individual datasets and 2 groups. <b>Six datasets have been
   withdrawn (dashed borders), and derivatives of four of those are still distributed.</b> RFW, BFW and LAOFIW take only their
   names from LFW: none of them contains LFW images. Hover or tap a dataset to trace its lineage. Columns give each dataset's
@@ -26,7 +26,7 @@ footer: >-
   Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the Face Dataset Provenance Knowledge
   Base in Notion. Status of VGGFace is assumed, not verified. Years come from the knowledge base; the few that are approximate
   or unknown are marked in each dataset's panel.
-node_table_title: Table view (35 entries plus Flickr and 4 publications)
+node_table_title: Table view (38 entries plus Flickr and 4 publications)
 layout:
   node_width: 168
   node_height: 46
@@ -103,6 +103,13 @@ link_types:
     lineage: false
     panel_out: Covered in
     panel_in: Covers
+  expansion:
+    legend: Expansion set (new photos, same protocol)
+    dotted: true
+    lineage: false
+    label: expansion
+    panel_out: Expansion sets
+    panel_in: Expansion of
 node_fields:
 - key: year
   label: Year
@@ -708,18 +715,19 @@ nodes:
 - id: cfd
   name: Chicago Face Database
   subtitle: Studio photos · NC
-  full: 'Chicago Face Database (Univ. of Chicago): CFD, CFD-MR, CFD-INDIA'
+  full: Chicago Face Database (Univ. of Chicago), core set
   kind: other
   status: On request
   attrs:
     terms: >-
-      Standardized high-resolution photos of ~827 people aged 17–65: CFD (597, self-identified Asian, Black, Latino or White),
-      CFD-MR (88 multiracial) and CFD-INDIA (142, recruited in Delhi). Non-commercial scientific research only; no redistribution,
-      including to cloud AI image tools; no identifying or contacting models, including by face recognition; at most four
-      images in publications without permission. Download link emailed on request. Per Ma, Correll & Wittenbrink 2015, the
-      original models were recruited by email through the Chicago Booth research lab, plus amateur actors via snowball sampling;
-      each signed a consent/release form allowing use of their photos for research purposes and was paid $20 for a ~20-minute
-      session. The paper covers only the first 158 Black and White models; no withdrawal mechanism is described.
+      Standardized high-resolution photos of 597 people (self-identified Asian, Black, Latino or White). Distributed in one
+      download with the CFD-MR and CFD-INDIA expansion sets (database v3.0.1); the terms below cover all three. Non-commercial
+      scientific research only; no redistribution, including to cloud AI image tools; no identifying or contacting models,
+      including by face recognition; at most four images in publications without permission. Download link emailed on request.
+      Per Ma, Correll & Wittenbrink 2015, the original models were recruited by email through the Chicago Booth research lab,
+      plus amateur actors via snowball sampling; each signed a consent/release form allowing use of their photos for research
+      purposes and was paid $20 for a ~20-minute session. The paper covers only the first 158 Black and White models; no withdrawal
+      mechanism is described.
     commercial: Non-commercial only
     consent: Signed release, research use
   refs:
@@ -728,6 +736,78 @@ nodes:
     url: https://www.chicagofaces.org/
   lane: none
   year: 2015
+- id: cfdmr
+  name: CFD-MR
+  subtitle: Studio photos · NC
+  full: 'Chicago Face Database: Multiracial expansion'
+  kind: other
+  status: On request
+  attrs:
+    terms: >-
+      Same terms of use as the Chicago Face Database: non-commercial scientific research only, no redistribution, no identifying
+      or contacting models, at most four images in publications without permission. Download link emailed on request, with
+      CFD and CFD-INDIA. 88 real multiracial individuals with self-reported race and ethnic ancestry. Recruitment materials
+      said the lab was looking for multiracial participants for research purposes (Ma, Kantner & Wittenbrink 2021).
+    commercial: Non-commercial only
+    consent: Recruited for research; release terms not verified
+  refs:
+  - label: Paper (DOI)
+    short: DOI
+    url: https://doi.org/10.3758/s13428-020-01482-5
+  - label: Primary source
+    short: Source
+    url: https://www.chicagofaces.org/
+  lane: none
+  year: 2020
+  year_note: Published online October 2020 (Behavior Research Methods 53(3), 2021).
+- id: cfdindia
+  name: CFD-INDIA
+  subtitle: Studio photos · NC
+  full: The India Face Set (CFD-INDIA expansion of the Chicago Face Database)
+  kind: other
+  status: On request
+  attrs:
+    terms: >-
+      Same terms of use as the Chicago Face Database: non-commercial scientific research only, no redistribution, no identifying
+      or contacting models, at most four images in publications without permission. Download link emailed on request, with
+      CFD and CFD-MR. 142 individuals recruited in Delhi and photographed at the University of Chicago Center in Delhi, in
+      the same grey t-shirt and setup as the CFD (Lakshmi et al. 2021).
+    commercial: Non-commercial only
+    consent: Volunteers; release terms not verified
+  refs:
+  - label: Paper (DOI)
+    short: DOI
+    url: https://doi.org/10.3389/fpsyg.2021.627678
+  - label: Primary source
+    short: Source
+    url: https://www.chicagofaces.org/
+  lane: none
+  year: 2021
+  year_note: Paper published February 2021; released as CFD version 3.0 in March 2021.
+- id: feret
+  name: FERET
+  subtitle: Studio photos · on request
+  full: FERET (Face Recognition Technology) database, DoD Counterdrug Technology Program / NIST
+  kind: other
+  status: On request
+  attrs:
+    terms: >-
+      Collected December 1993 to August 1996 for the FERET programme to develop and evaluate face recognition algorithms.
+      NIST distributes it (as Color FERET) to face-recognition researchers case by case under a release agreement: no further
+      distribution, publication only of images approved for release, and an acknowledgement in every paper.
+    commercial: Not stated; research access case by case
+    consent: Not verified
+  refs:
+  - label: Paper (DOI)
+    short: DOI
+    url: https://doi.org/10.1016/S0262-8856(97)00070-X
+  - label: Primary source
+    short: Source
+    url: https://www.nist.gov/itl/products-and-services/color-feret-database
+  lane: none
+  year: 1998
+  year_note: >-
+    Year of the paper (Phillips, Wechsler, Huang & Rauss, Image and Vision Computing 16(5), 1998); images collected 1993–1996.
 - id: harvey_ea
   name: Exposing.ai
   subtitle: Harvey & LaPlace · website
@@ -933,6 +1013,12 @@ links:
 - from: lfwother
   to: peng2021
   how: covered
+- from: cfd
+  to: cfdmr
+  how: expansion
+- from: cfd
+  to: cfdindia
+  how: expansion
 toggles:
 - label: Related publications
   kinds:

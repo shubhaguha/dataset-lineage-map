@@ -138,14 +138,14 @@ def _col_x(lay, c):
 
 
 def optimise_rows(doc, cells, rows, lay):
-    """Choose a row per node (within its lane and column) so that lineage links do
-    not pass behind other boxes, using the same curves as the renderer. Local
+    """Choose a row per node (within its lane and column) so that links (all but
+    `quiet` link types) do not pass behind other boxes, using the same curves as the renderer. Local
     search from file order; deterministic. A node with `lane_row` is pinned."""
     W, H, RH = lay.get("node_width", 170), lay["node_height"], lay["row_height"]
     lt = doc.get("link_types") or {}
     nodes = {n["id"]: n for v in cells.values() for n in v}
     links = [(l["from"], l["to"]) for l in doc.get("links") or []
-             if (lt.get(l.get("how")) or {}).get("lineage", True) is not False
+             if not (lt.get(l.get("how")) or {}).get("quiet")
              and l["from"] in nodes and l["to"] in nodes and nodes[l["from"]]["lane"] == nodes[l["to"]]["lane"]]
     for v in cells.values():
         for n in v:
