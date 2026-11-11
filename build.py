@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Build a self-contained dataset-lineage HTML page from a YAML file.
+"""Build dataset-lineage pages from YAML.
 
 Usage:
-    python build.py data/data-quality.yaml data-quality-lineage.html
-    python build.py data/data-quality.yaml --check      # validate only
+    python build.py                       # whole site: every data/maps/*.yaml, the
+                                          # knowledge base (data/kb.yaml) and an index, into docs/
+    python build.py --check               # validate everything, write nothing
+    python build.py data/maps/data-quality.yaml out.html   # one standalone map page
+    python build.py data/maps/data-quality.yaml --check
 
 A data file may start with `extends: other.yaml` to build on another map
 (see load()).
@@ -20,6 +23,11 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "template" / "lineage.html"
+KB_TEMPLATE = HERE / "template" / "kb.html"
+INDEX_TEMPLATE = HERE / "template" / "index.html"
+MAPS_DIR = HERE / "data" / "maps"
+KB_FILE = HERE / "data" / "kb.yaml"
+DOCS = HERE / "docs"
 PLACEHOLDER = "/*__LINEAGE_DATA__*/"
 COLORS = {"series-1", "series-2", "series-3", "series-4", "neutral"}
 HOW = {"paper", "inferred"}
@@ -355,8 +363,8 @@ def validate(doc):
     return errors, warnings
 
 
-def build(doc):
-    template = TEMPLATE.read_text(encoding="utf-8")
+def build(doc, template_path=TEMPLATE):
+    template = Path(template_path).read_text(encoding="utf-8")
     if template.count(PLACEHOLDER) != 1:
         raise SystemExit(f"template must contain {PLACEHOLDER} exactly once")
     payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
@@ -364,12 +372,127 @@ def build(doc):
     return template.replace(PLACEHOLDER, payload)
 
 
+# Fields of a traced (left-column) dataset that the knowledge base shows per map.
+MAP_DS_FIELDS = [("source_full", "Original source"), ("aka", "Also called"), ("real", "Real or synthetic"),
+                 ("path", "Path to recent benchmarks"), ("sizes", "Sizes as reported"), ("get", "Where to get it"),
+                 ("note", "Note"), ("url", "Source link")]
+
+
+def validate_kb(kb):
+    errors, warnings = [], []
+    topics = set((kb.get("topics") or {}).keys())
+    fields = {f.get("key") for f in kb.get("fields") or []}
+    ids = set()
+    for n, r in enumerate(kb.get("records") or []):
+        where = f"kb records[{n}] ({r.get('id', '?')})"
+        if not r.get("id") or not r.get("name"):
+            errors.append(f"{where}: needs id and name")
+        if r.get("id") in ids:
+            errors.append(f"{where}: duplicate id")
+        ids.add(r.get("id"))
+        for t in r.get("topics") or []:
+            if t not in topics:
+                errors.append(f"{where}: unknown topic '{t}'")
+        for k in r:
+            if k not in fields | {"id", "name", "topics"}:
+                warnings.append(f"{where}: field '{k}' is not declared in fields (won't be shown)")
+    types = {f["key"]: f.get("type") for f in kb.get("fields") or []}
+    for r in kb.get("records") or []:
+        for k, t in types.items():
+            if t == "ids":
+                for i in r.get(k) or []:
+                    if i not in ids:
+                        errors.append(f"kb record {r['id']}: {k} names unknown record '{i}'")
+    return errors, warnings
+
+
+def build_site(check=False):
+    """Build every map in data/maps/, the knowledge base and an index into docs/."""
+    kb = yaml.safe_load(KB_FILE.read_text(encoding="utf-8")) if KB_FILE.exists() else None
+    problems = 0
+    if kb:
+        errors, warnings = validate_kb(kb)
+        for w in warnings:
+            print(f"warning: kb: {w}", file=sys.stderr)
+        for e in errors:
+            print(f"error: kb: {e}", file=sys.stderr)
+        problems += len(errors)
+    records = {r["id"]: r for r in (kb or {}).get("records") or []}
+    for r in records.values():
+        r["maps"] = []
+    nav = [{"label": "All maps", "href": "index.html"}] + ([{"label": "Knowledge base", "href": "kb.html"}] if kb else [])
+    pages, outputs = [], {}
+    for path in sorted(MAPS_DIR.glob("*.yaml")):
+        doc, errors = place(load(path))
+        warnings = []
+        if not errors:
+            errors, warnings = validate(doc)
+        for w in warnings:
+            print(f"warning: {path.name}: {w}", file=sys.stderr)
+        for e in errors:
+            print(f"error: {path.name}: {e}", file=sys.stderr)
+        problems += len(errors)
+        if errors:
+            continue
+        href = path.stem + ".html"
+        kb_ids, unmatched = {}, []
+        boxes = [("ds", d) for d in doc.get("datasets") or []] + [("node", n) for n in doc.get("nodes") or []]
+        for sect, b in boxes:
+            k = b.get("kb", b["id"])
+            if k is False:
+                continue
+            if k in records:
+                kb_ids[b["id"]] = k
+                entry = {"title": doc["title"], "href": f"{href}#{b['id']}", "box": b["name"]}
+                if sect == "ds":
+                    entry["fields"] = [[lab, b[key]] for key, lab in MAP_DS_FIELDS if b.get(key)]
+                records[k]["maps"].append(entry)
+            elif sect == "ds" or b.get("kind") in (doc.get("kinds") or {}) and not any(
+                    b.get("kind") in t.get("kinds", []) for t in doc.get("toggles") or []):
+                unmatched.append(b["id"])
+        if kb and unmatched:
+            print(f"note: {path.name}: no knowledge-base record for {', '.join(unmatched)}", file=sys.stderr)
+        doc["site"] = {"nav": nav, "kb_page": "kb.html" if kb else None, "kb_ids": kb_ids}
+        n_boxes = len(boxes)
+        pages.append({"href": href, "title": doc["title"], "intro": doc.get("intro", ""),
+                      "counts": f"{n_boxes} boxes, {len(doc['links'])} links"})
+        outputs[href] = (doc, TEMPLATE)
+    # Records without their own `source` take the original source from the first map that traces them.
+    if kb and any(f.get("key") == "source" for f in kb.get("fields") or []):
+        for r in records.values():
+            if not r.get("source"):
+                for m in r["maps"]:
+                    src = dict(m.get("fields") or []).get("Original source")
+                    if src:
+                        r["source"] = src
+                        break
+    if kb:
+        kb["site"] = {"nav": nav, "maps": [{"href": p["href"], "title": p["title"]} for p in pages]}
+        outputs["kb.html"] = (kb, KB_TEMPLATE)
+    index = {"title": "Dataset lineage maps", "intro": "Interactive maps of where datasets come from and how they are reused, built from YAML.",
+             "maps": pages, "kb": {"href": "kb.html", "count": len(records), "intro": kb.get("intro", "")} if kb else None}
+    outputs["index.html"] = (index, INDEX_TEMPLATE)
+    if problems:
+        sys.exit(1)
+    if check:
+        print(f"OK: {len(pages)} maps" + (f", {len(records)} knowledge-base records" if kb else ""))
+        return
+    DOCS.mkdir(exist_ok=True)
+    (DOCS / ".nojekyll").write_text("", encoding="utf-8")
+    for name, (doc, tpl) in outputs.items():
+        (DOCS / name).write_text(build(doc, tpl), encoding="utf-8")
+        print(f"wrote docs/{name}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("data", type=Path, help="YAML data file")
+    ap.add_argument("data", type=Path, nargs="?", help="YAML map file (omit to build the whole site)")
     ap.add_argument("out", type=Path, nargs="?", help="output HTML file")
     ap.add_argument("--check", action="store_true", help="validate only, don't write")
     args = ap.parse_args()
+    if args.data is None:
+        build_site(check=args.check)
+        return
 
     doc, errors = place(load(args.data))
     if not errors:

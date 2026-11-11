@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dataset knowledge base</title>
+<style>
+.viz-root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #8a5cc7;
+  --neutral: #898781;
+  --band: rgba(11,11,11,0.025);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #9d75d6;
+    --band: rgba(255,255,255,0.03);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.viz-root { background: var(--page); color: var(--text-primary); min-height: 100vh; padding: 28px 28px 72px; }
+.wrap { max-width: 1500px; margin: 0 auto; }
+.sitenav { display: flex; gap: 16px; font-size: 13px; margin: 0 0 10px; }
+.sitenav a, a { color: var(--series-1); text-decoration: none; font-weight: 600; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+.lede { color: var(--text-secondary); font-size: 14.5px; line-height: 1.5; max-width: 900px; margin: 0 0 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 0 0 12px; }
+.chip { font: inherit; font-size: 13.5px; font-weight: 600; padding: 6px 13px; border-radius: 999px; border: 1.5px solid var(--axis); background: var(--surface-1); color: var(--text-primary); cursor: pointer; }
+.chip .ct { color: var(--muted); font-weight: 500; font-size: 11.5px; margin-left: 5px; }
+.chip[aria-pressed="true"] { background: var(--text-primary); color: var(--page); border-color: var(--text-primary); }
+.chip[aria-pressed="true"] .ct { color: var(--axis); }
+input[type=search] { font: inherit; font-size: 13.5px; padding: 7px 11px; border-radius: 8px; border: 1px solid var(--axis); background: var(--surface-1); color: var(--text-primary); min-width: 260px; }
+.count { color: var(--muted); font-size: 12.5px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 4px 12px 10px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; white-space: nowrap; user-select: none; }
+th[aria-sort="ascending"]::after { content: " ▲"; } th[aria-sort="descending"]::after { content: " ▼"; }
+tr.rec { cursor: pointer; }
+tr.rec:hover td { background: var(--band); }
+tr.rec[aria-expanded="true"] td { background: var(--band); border-bottom-color: transparent; }
+tr.rec td:first-child b::before { content: "▸ "; color: var(--muted); }
+tr.rec[aria-expanded="true"] td:first-child b::before { content: "▾ "; }
+.sub { color: var(--text-secondary); }
+.tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); margin: 1px 3px 1px 0; color: var(--text-secondary); white-space: nowrap; }
+.t-faces { border-color: var(--series-1); } .t-data-quality { border-color: var(--series-3); } .t-fairness { border-color: var(--series-4); }
+tr.detail td { padding: 4px 8px 18px 22px; background: var(--band); }
+dl { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 6px 16px; margin: 6px 0 0; font-size: 13px; line-height: 1.45; max-width: 1100px; }
+dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; padding-top: 2px; }
+dd { margin: 0; }
+.onmap { margin-top: 14px; font-size: 13px; }
+.onmap h3 { font-size: 13px; margin: 12px 0 2px; }
+.foot { margin-top: 14px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+@media print { .controls, .sitenav { display: none; } }
+</style>
+</head>
+<body>
+<div class="viz-root"><div class="wrap">
+  <nav class="sitenav" id="sitenav" hidden></nav>
+  <h1 id="title"></h1>
+  <p class="lede" id="lede"></p>
+  <div class="controls">
+    <div id="topics" role="group" aria-label="Filter by topic"></div>
+    <input type="search" id="q" placeholder="Search names, terms, sources…" aria-label="Search records">
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+  <div class="card"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+  <p class="foot" id="foot"></p>
+</div></div>
+<script id="kb-data" type="application/json">/*__LINEAGE_DATA__*/</script>
+<script>
+// ---- Generic knowledge-base renderer. All content comes from the JSON block above (built from data/kb.yaml). ----
+const DATA = JSON.parse(document.getElementById('kb-data').textContent);
+const TOP = DATA.topics || {}, FIELDS = DATA.fields || [], RECS = DATA.records || [], SITE = DATA.site || {};
+const byId = Object.fromEntries(RECS.map(r => [r.id, r]));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const has = v => v != null && v !== '' && !(Array.isArray(v) && !v.length);
+document.title = DATA.title;
+document.getElementById('title').textContent = DATA.title;
+document.getElementById('lede').innerHTML = DATA.intro || '';
+document.getElementById('foot').innerHTML = DATA.footer || '';
+if (SITE.nav) { const n = document.getElementById('sitenav'); n.hidden = false; n.innerHTML = SITE.nav.filter(x => x.href !== 'kb.html').map(x => `<a href="${esc(x.href)}">${esc(x.label)}</a>`).join(''); }
+
+const fmt = (f, v) => {
+  if (f.type === 'ids') return v.map(i => byId[i] ? `<a href="#${encodeURIComponent(i)}">${esc(byId[i].name)}</a>` : esc(i)).join(', ');
+  if (f.type === 'list') return v.map(x => `<span class="tag">${esc(x)}</span>`).join('');
+  if (f.type === 'url') return `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v.replace(/^https?:\/\//, '').replace(/\/$/, ''))} ↗</a>`;
+  if (f.type === 'bool') return v ? 'Yes' : 'No';
+  if (typeof v === 'number') return f.key === 'year' ? String(v) : v.toLocaleString('en-US');
+  return esc(v);
+};
+const topicTags = r => (r.topics || []).map(t => `<span class="tag t-${esc(t)}">${esc((TOP[t] || {}).label || t)}</span>`).join('');
+const mapsCell = r => (r.maps || []).map(m => `<a href="${esc(m.href)}" title="${esc(m.box)} on ${esc(m.title)}">${esc(m.title)}</a>`).join('<br>') || '—';
+const haystack = r => [r.name, ...FIELDS.map(f => r[f.key]).flat(), ...(r.maps || []).flatMap(m => (m.fields || []).map(x => x[1]))].filter(has).join(' ').toLowerCase();
+RECS.forEach(r => { r._h = haystack(r); });
+
+// state: topic (?topic=…) and search
+let topic = new URLSearchParams(location.search).get('topic') || 'all', q = '', sortKey = null, sortDir = 1, open = new Set();
+if (topic !== 'all' && !TOP[topic]) topic = 'all';
+const tbox = document.getElementById('topics');
+const chips = [['all', 'All', RECS.length], ...Object.entries(TOP).map(([k, t]) => [k, t.label, RECS.filter(r => (r.topics || []).includes(k)).length])].map(([k, label, n]) => {
+  const b = document.createElement('button'); b.className = 'chip'; b.dataset.k = k;
+  b.innerHTML = `${esc(label)}<span class="ct">${n}</span>`;
+  b.addEventListener('click', () => { topic = k; const u = new URL(location); if (k === 'all') u.searchParams.delete('topic'); else u.searchParams.set('topic', k); history.replaceState(null, '', u); render(); });
+  tbox.appendChild(b); return b;
+});
+document.getElementById('q').addEventListener('input', ev => { q = ev.target.value.trim().toLowerCase(); render(); });
+
+const TABLE_FIELDS = FIELDS.filter(f => f.table);
+function render() {
+  chips.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === topic)));
+  let vis = RECS.filter(r => (topic === 'all' || (r.topics || []).includes(topic)) && (!q || q.split(/\s+/).every(w => r._h.includes(w))));
+  const cols = [{ key: 'name', label: 'Dataset' }, { key: 'topics', label: 'Topics' }, ...TABLE_FIELDS.filter(f => vis.some(r => has(r[f.key]))), { key: 'maps', label: 'On maps' }];
+  if (sortKey) {
+    const val = r => sortKey === 'maps' ? (r.maps || []).length : sortKey === 'topics' ? (r.topics || []).join() : r[sortKey];
+    vis = [...vis].sort((a, b) => { const x = val(a), y = val(b); if (!has(x)) return 1; if (!has(y)) return -1; return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * sortDir; });
+  }
+  document.querySelector('#tbl thead').innerHTML = `<tr>${cols.map(c => `<th data-k="${c.key}" aria-sort="${c.key === sortKey ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'}">${esc(c.label)}</th>`).join('')}</tr>`;
+  document.querySelectorAll('#tbl th').forEach(th => th.addEventListener('click', () => { const k = th.dataset.k; sortDir = sortKey === k ? -sortDir : 1; sortKey = k; render(); }));
+  const tb = document.querySelector('#tbl tbody'); tb.innerHTML = '';
+  vis.forEach(r => {
+    const tr = document.createElement('tr'); tr.className = 'rec'; tr.id = r.id; tr.tabIndex = 0; tr.setAttribute('aria-expanded', String(open.has(r.id)));
+    tr.innerHTML = cols.map(c => {
+      if (c.key === 'name') return `<td><b>${esc(r.name)}</b>${r.full_name ? `<br><span class="sub">${esc(r.full_name)}</span>` : ''}</td>`;
+      if (c.key === 'topics') return `<td>${topicTags(r)}</td>`;
+      if (c.key === 'maps') return `<td>${mapsCell(r)}</td>`;
+      return `<td>${has(r[c.key]) ? fmt(c, r[c.key]) : ''}</td>`;
+    }).join('');
+    const toggle = () => { open.has(r.id) ? open.delete(r.id) : open.add(r.id); render(); };
+    tr.addEventListener('click', ev => { if (ev.target.closest('a')) return; toggle(); });
+    tr.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); } });
+    tb.appendChild(tr);
+    if (open.has(r.id)) {
+      const dr = document.createElement('tr'); dr.className = 'detail';
+      const fs = FIELDS.filter(f => f.key !== 'full_name' && has(r[f.key]));
+      const maps = (r.maps || []).map(m => `<h3><a href="${esc(m.href)}">${esc(m.title)}</a>${m.box !== r.name ? ` <span class="sub">(as ${esc(m.box)})</span>` : ''}</h3>${m.fields && m.fields.length ? `<dl>${m.fields.map(([l, v]) => `<dt>${esc(l)}</dt><dd>${/^https?:/.test(v) ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)} ↗</a>` : esc(v)}</dd>`).join('')}</dl>` : ''}`).join('');
+      dr.innerHTML = `<td colspan="${cols.length}">${fs.length ? `<dl>${fs.map(f => `<dt>${esc(f.label)}</dt><dd>${fmt(f, r[f.key])}</dd>`).join('')}</dl>` : ''}${maps ? `<div class="onmap">${maps}</div>` : ''}</td>`;
+      tb.appendChild(dr);
+    }
+  });
+  document.getElementById('count').textContent = `Showing ${vis.length} of ${RECS.length}`;
+}
+function fromHash() {
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (!byId[id]) return;
+  const r = byId[id];
+  if (topic !== 'all' && !(r.topics || []).includes(topic)) topic = 'all';
+  if (q && !r._h.includes(q)) { q = ''; document.getElementById('q').value = ''; }
+  open.add(id); render();
+  const el = document.getElementById(id); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+}
+window.addEventListener('hashchange', fromHash);
+render(); fromHash();
+</script>
+</body>
+</html>

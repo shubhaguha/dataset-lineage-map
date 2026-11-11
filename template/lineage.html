@@ -40,6 +40,9 @@ header { max-width: 1500px; margin: 0 auto 14px; }
 h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
 .lede { color: var(--text-secondary); font-size: 14.5px; line-height: 1.5; max-width: 900px; margin: 0; }
 .lede b { color: var(--text-primary); font-weight: 600; }
+.sitenav { display: flex; gap: 16px; font-size: 13px; margin: 0 0 10px; }
+.sitenav a { color: var(--series-1); text-decoration: none; font-weight: 600; }
+.sitenav a:hover { text-decoration: underline; }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 14px 0 0; font-size: 12.5px; color: var(--text-secondary); align-items: center; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .sw { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; display: inline-block; }
@@ -136,6 +139,7 @@ td.sz { font-variant-numeric: tabular-nums; white-space: nowrap; }
 <body>
 <div class="viz-root">
   <header>
+    <nav class="sitenav" id="sitenav" hidden></nav>
     <h1 id="title"></h1>
     <p class="lede" id="lede"></p>
     <div class="legend" id="legend" aria-label="Legend"></div>
@@ -369,7 +373,9 @@ const crossHTML = id => {
   });
   return out.join('');
 };
-const refsHTML = d => `<div class="links">${d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)} ↗</a>`).join('')}</div>`;
+const SITE = DATA.site || {};
+const kbLink = id => SITE.kb_page && (SITE.kb_ids || {})[id] ? `<a href="${esc(SITE.kb_page)}#${encodeURIComponent(SITE.kb_ids[id])}">Knowledge base entry →</a>` : '';
+const refsHTML = d => `<div class="links">${d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)} ↗</a>`).join('')}${kbLink(d.id)}</div>`;
 function chainUp(id, seen = new Set()) {
   // longest path back to a root, for the provenance chain line
   if (seen.has(id)) return [id];
@@ -421,7 +427,7 @@ function renderDs(k) {
     ${s.sizes ? `<div class="k">Sizes as reported</div><p>${esc(s.sizes)}</p>` : ''}
     ${s.note ? `<div class="k">Note</div><p>${esc(s.note)}</p>` : ''}
     ${s.get ? `<div class="k">Where to get it</div><p>${esc(s.get)}</p>` : ''}
-    <div class="k">Links on the map (${es.length})</div><ul>${es.map(e => `<li>${esc(byId[e.s].name)} → ${esc(byId[e.t].name)} <span class="from">(${esc(e.l)}${tagOf(e) ? ', ' + esc(tagOf(e)) : ''})</span></li>`).join('')}</ul>`;
+    <div class="k">Links on the map (${es.length})</div><ul>${es.map(e => `<li>${esc(byId[e.s].name)} → ${esc(byId[e.t].name)} <span class="from">(${esc(e.l)}${tagOf(e) ? ', ' + esc(tagOf(e)) : ''})</span></li>`).join('')}</ul>${kbLink(k) ? `<div class="links">${kbLink(k)}</div>` : ''}`;
 }
 
 // dataset chips
@@ -503,6 +509,20 @@ if (TOGS.length) {
   });
   applyToggles();
 }
+
+// site navigation and deep links (map.html#<box id> selects that box)
+if (SITE.nav) {
+  const nav = document.getElementById('sitenav'); nav.hidden = false;
+  nav.innerHTML = SITE.nav.map(n => `<a href="${esc(n.href)}">${esc(n.label)}</a>`).join('');
+}
+function fromHash() {
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (!byId[id]) return;
+  if (byId[id].isDs) { activeDs = null; showDs(id); } else { pinned = null; pin(id); }
+  if (nodeEls[id].scrollIntoView) nodeEls[id].scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+window.addEventListener('hashchange', fromHash);
+fromHash();
 </script>
 </body>
 </html>

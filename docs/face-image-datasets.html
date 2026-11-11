@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+<style>
+.viz-root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #8a5cc7;
+  --neutral: #898781;
+  --band: rgba(11,11,11,0.025);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #9d75d6;
+    --band: rgba(255,255,255,0.03);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.viz-root { background: var(--page); color: var(--text-primary); min-height: 100vh; padding: 28px 28px 72px; }
+header { max-width: 1500px; margin: 0 auto 14px; }
+h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+.lede { color: var(--text-secondary); font-size: 14.5px; line-height: 1.5; max-width: 900px; margin: 0; }
+.lede b { color: var(--text-primary); font-weight: 600; }
+.sitenav { display: flex; gap: 16px; font-size: 13px; margin: 0 0 10px; }
+.sitenav a { color: var(--series-1); text-decoration: none; font-weight: 600; }
+.sitenav a:hover { text-decoration: underline; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 14px 0 0; font-size: 12.5px; color: var(--text-secondary); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 14px; height: 14px; border-radius: 4px; border: 2px solid; display: inline-block; }
+.ln { width: 26px; height: 0; border-top: 1.75px solid var(--muted); display: inline-block; }
+.ln.dash { border-top-style: dashed; }
+.ln.dot { border-top-style: dotted; border-top-width: 2px; }
+.tracer { max-width: 1500px; margin: 0 auto 14px; padding: 14px 16px 12px; }
+.tracer-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
+.tracer-head h2 { font-size: 17px; font-weight: 600; margin: 0; }
+.tracer-hint { font-size: 12.5px; color: var(--text-secondary); }
+.chips { display: flex; flex-wrap: wrap; gap: 7px 8px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 12px; font-size: 12.5px; }
+.toolbar { max-width: 1500px; margin: 0 auto 12px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: 12.5px; }
+.toolbar .lbl { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; font-weight: 600; margin-right: 4px; }
+.dchip { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 13px 7px 10px; border-radius: 999px; border: 1.5px solid var(--axis); background: var(--surface-1); color: var(--text-primary); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.dchip i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.dchip:hover { border-color: var(--axis); }
+.dchip[aria-pressed="true"] { background: var(--text-primary); color: var(--page); border-color: var(--text-primary); }
+.dchip .ct { color: var(--muted); font-size: 11.5px; font-weight: 500; }
+.dchip[aria-pressed="true"] .ct { color: var(--axis); }
+.toggle { display: inline-flex; gap: 6px; align-items: center; color: var(--text-secondary); cursor: pointer; user-select: none; }
+.layout { max-width: 1500px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 1050px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.chart { padding: 10px; overflow: hidden; }
+svg { display: block; width: 100%; height: auto; }
+.lane-band { fill: var(--band); }
+.lane-label { font-size: 11px; fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.edge { fill: none; stroke: var(--muted); stroke-width: 1.5; transition: opacity .15s, stroke .15s; }
+.edge.dashed { stroke-dasharray: 5 4; }
+.edge.dotted { stroke-dasharray: 1.5 3.5; stroke-linecap: round; }
+.edge.quiet { opacity: 0.3; }
+svg.focusing .edge.quiet.on { opacity: 1; }
+.col-label { font-size: 11px; fill: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+.col-sep { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 4; }
+.tg-grey { opacity: 0.25; }
+svg.focusing .node.tg-grey:not(.dim), svg.focusing .edge.tg-grey.on { opacity: 0.6; }
+tr.tg-grey { opacity: 0.45; }
+.tg-hide { display: none; }
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; margin-right: 14px; }
+.seg button { font: inherit; font-size: 12.5px; padding: 4px 11px; border: 0; background: var(--surface-1); color: var(--text-secondary); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--axis); }
+.seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--page); }
+.node.dashed rect.body { stroke-dasharray: 6 4; }
+.box-dash { width: 18px; height: 12px; border: 1.75px dashed var(--text-secondary); border-radius: 3px; display: inline-block; }
+.chain { font-size: 13px; line-height: 1.6; }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 9; cursor: help; }
+.edge-label { font-size: 10.5px; fill: var(--text-primary); paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; opacity: 0; transition: opacity .15s; }
+svg.alllabels .edge-label { opacity: 1; }
+svg.focusing .edge-label.on { opacity: 1; }
+svg.focusing.alllabels .edge-label.dim { opacity: 0.12; }
+.node { cursor: pointer; transition: opacity .15s; outline: none; }
+.node rect.body { stroke-width: 2; }
+.node .name { font-size: 12.5px; font-weight: 600; fill: var(--text-primary); }
+.node .sub { font-size: 10.5px; fill: var(--text-secondary); }
+.node .hit { fill: transparent; }
+.node.dsnode .name { font-size: 13.5px; }
+.node:focus-visible rect.body, .node.pinned rect.body { stroke-width: 3; }
+svg.focusing .node.dim, svg.focusing .edge.dim { opacity: 0.12; }
+svg.focusing .edge.on { stroke-width: 2.3; stroke: var(--text-secondary); }
+.panel { padding: 18px 18px 16px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
+.panel .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin: 14px 0 4px; }
+.panel h2 { font-size: 19px; margin: 0 0 2px; font-weight: 600; }
+.panel .full { color: var(--text-secondary); font-size: 12.5px; margin: 0 0 8px; line-height: 1.4; }
+.panel p { margin: 0; font-size: 13px; line-height: 1.45; }
+.panel ul { margin: 0; padding-left: 16px; font-size: 13px; line-height: 1.45; }
+.panel li { margin-bottom: 5px; }
+.panel li .from { color: var(--text-secondary); }
+.panel .ds { font-weight: 600; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); margin: 2px 4px 2px 0; color: var(--text-primary); }
+.chip i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.links { margin-top: 14px; display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.links a, .panel a { color: var(--series-1); text-decoration: none; font-weight: 600; }
+.links a:hover, .panel a:hover { text-decoration: underline; }
+.hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+details.table { max-width: 1500px; margin: 18px auto 0; padding: 12px 16px; }
+details.table summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+td a { color: var(--series-1); }
+td.sz { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.foot { max-width: 1500px; margin: 14px auto 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+@media print {
+  .viz-root { padding: 10mm; min-height: 0; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .panel, .toolbar { display: none; }
+  details.table { break-before: page; }
+  details.table > *:not(summary) { display: block; }
+  @page { size: A4 landscape; margin: 8mm; }
+}
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <header>
+    <nav class="sitenav" id="sitenav" hidden></nav>
+    <h1 id="title"></h1>
+    <p class="lede" id="lede"></p>
+    <div class="legend" id="legend" aria-label="Legend"></div>
+  </header>
+
+  <section class="card tracer" id="tracer" aria-label="Trace a dataset">
+    <div class="tracer-head"><h2>Trace a dataset</h2><span class="tracer-hint">Pick one to follow it from its origin through every paper that used it. The boxes in the left column of the map do the same. The number is how many links carry it.</span></div>
+    <div class="chips" id="chips"></div>
+    <div class="opts">
+      <label class="toggle"><input type="checkbox" id="labelToggle"> Show all line labels</label>
+    </div>
+  </section>
+
+  <div class="toolbar" id="toolbar" hidden></div>
+  <div class="layout">
+    <div class="card chart"><svg id="viz" role="img" aria-labelledby="vizTitle"><title id="vizTitle"></title></svg></div>
+    <aside class="card panel" id="panel" aria-live="polite">
+      <p class="hint" id="hint"></p>
+    </aside>
+  </div>
+
+  <details class="card table" id="dtable" open>
+    <summary>Dataset table</summary>
+    <table id="dtbl"><thead><tr><th>Dataset</th><th>Original source</th><th>Real or synthetic</th><th>Path to recent benchmarks</th><th>Sizes as reported</th><th>Where to get it</th></tr></thead><tbody></tbody></table>
+  </details>
+  <details class="card table">
+    <summary id="ntitle"></summary>
+    <table id="ntbl"><thead></thead><tbody></tbody></table>
+  </details>
+  <p class="foot" id="foot"></p>
+</div>
+
+<script id="lineage-data" type="application/json">{"page_title":"Face Dataset Lineage Map","title":"Shared provenance of face datasets","intro":"Each line shows where a dataset's <b>images<\/b> came from. 21 of the 38 entries take their images from another dataset, and LFW alone has <b>20 known derivatives<\/b>, shown here as 5 individual datasets and 2 groups. <b>Six datasets have been withdrawn (dashed borders), and derivatives of four of those are still distributed.<\/b> RFW, BFW and LAOFIW take only their names from LFW: none of them contains LFW images. Hover or tap a dataset to trace its lineage. Columns give each dataset's <b>release year<\/b>; boxes on the right are <b>publications that document these datasets<\/b>, which can be greyed out or hidden.","svg_title":"Lineage graph of face datasets grouped by upstream source","panel_hint":"Select a dataset to see its terms, its parents and children, and a link to its primary source.<br><br>Datasets shown with no lines have no upstream source shared with any other dataset here.","footer":"Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the <a href=\"kb.html\">knowledge base<\/a>. Status of VGGFace is assumed, not verified. Years come from the knowledge base; the few that are approximate or unknown are marked in each dataset's panel.","node_table_title":"Table view (38 entries plus Flickr and 4 publications)","layout":{"node_width":168,"node_height":46,"first_x":40,"first_gap":186,"col_gap":186,"min_curve":0,"top":40,"row_height":54,"lane_gap":12,"lane_pad_top":28,"lane_pad_bottom":12,"min_width":1300,"year_in_subtitle":true,"auto_rows":true,"height":1490},"lanes":[{"id":"flickr","kb":false,"label":"Flickr / YFCC100M family","y":40,"h":302,"label_y":58},{"id":"msceleb","label":"MS-Celeb-1M family","y":354,"h":140,"label_y":372},{"id":"vgg","label":"VGG / CASIA family","y":506,"h":140,"label_y":524},{"id":"lfw","label":"News photos & LFW derivatives","y":658,"h":410,"label_y":676},{"id":"celeb","label":"Celebrity profiles & mugshots","y":1080,"h":140,"label_y":1098},{"id":"none","label":"No shared upstream","y":1232,"h":248,"label_y":1250}],"labels":"always","panel":"lineage","kinds":{"flickr":{"label":"Flickr (Creative Commons)","legend":"Flickr (Creative Commons)","color":"series-1"},"web":{"label":"Web search / celebrity-site scrape","legend":"Web search / celebrity-site scrape","color":"series-2"},"other":{"label":"Other origin","legend":"Other origin (news, mugshots, official portraits, consented)","color":"series-3"},"text":{"label":"Text only","legend":"Text only","color":"neutral"},"pub":{"label":"Related publication","legend":"Related publication","color":"series-4"}},"statuses":{"Platform":{},"Available":{},"On request":{},"Parent withdrawn":{"badge":"⚠"},"Withdrawn":{"badge":"⊘","dashed":true,"legend":"Withdrawn"}},"link_types":{"from":{"legend":"Images taken from"},"partly":{"legend":"Partly taken from","dashed":true,"tag":"partly","label":"partly"},"covered":{"legend":"Covered in publication","dotted":true,"quiet":true,"lineage":false,"panel_out":"Covered in","panel_in":"Covers"},"expansion":{"legend":"Expansion set (new photos, same protocol)","dotted":true,"lineage":false,"label":"expansion","panel_out":"Expansion sets","panel_in":"Expansion of"}},"node_fields":[{"key":"year","label":"Year"},{"key":"terms","label":"Terms and image rights"},{"key":"commercial","label":"Commercial use"},{"key":"consent","label":"Consent"}],"node_table":[{"col":"name","label":"Dataset"},{"col":"year","label":"Year"},{"col":"kind","label":"Image origin"},{"col":"from","label":"Built from"},{"col":"status","label":"Status"},{"col":"field","key":"commercial","label":"Commercial use"},{"col":"field","key":"consent","label":"Consent"},{"col":"linked","how":"covered","label":"Covered in"},{"col":"links","label":"Links"}],"nodes":[{"id":"flickr","kb":false,"name":"Flickr.com","subtitle":"Source platform","full":"Photo-sharing platform","kind":"flickr","status":"Platform","attrs":{"terms":"Per-photo licence chosen by uploader; ~2.3% of Flickr is CC-licensed.","commercial":"Varies per photo","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.flickr.com/creativecommons"}],"lane":"flickr","year":2004,"year_note":"Not in the knowledge base: Flickr launched in 2004.","column":0,"y":176},{"id":"yfcc","name":"YFCC100M","subtitle":"Available","full":"Yahoo Flickr Creative Commons 100M","kind":"flickr","status":"Available","attrs":{"terms":"URLs + licence metadata; billed as \"free and legal to use\". Only ~31.8% of photos allow commercial use.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://code.flickr.net/2014/10/15/the-ins-and-outs-of-the-yahoo-flickr-100-million-creative-commons-dataset/"}],"lane":"flickr","year":2014,"column":2,"y":122},{"id":"ffhq","name":"FFHQ","subtitle":"Available · NC","full":"Flickr-Faces-HQ (NVIDIA)","kind":"flickr","status":"Available","attrs":{"terms":"CC BY-NC-SA 4.0 compilation; per-image CC BY / BY-NC / CC0 / PD recorded in metadata; no NoDerivs images.","commercial":"Non-commercial only","consent":"Opt-out only"},"refs":[{"label":"Primary source","short":"Source","url":"https://github.com/NVlabs/ffhq-dataset"}],"lane":"flickr","year":2019,"column":5,"y":230},{"id":"mega","name":"MegaFace","subtitle":"⊘ Withdrawn · NC","full":"MegaFace MF2 (Univ. of Washington)","kind":"flickr","status":"Withdrawn","attrs":{"terms":"Non-commercial research; researcher indemnifies UW. 69% of photos bar commercial use. Decommissioned June 2020.","commercial":"Non-commercial only","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"http://megaface.cs.washington.edu/dataset/download_training.html"}],"lane":"flickr","year":2016,"column":3,"y":68},{"id":"fairface","name":"FairFace","subtitle":"Available · CC BY label","full":"FairFace (UCLA)","kind":"flickr","status":"Available","attrs":{"terms":"CC BY 4.0 label. Paper says only CC BY / BY-SA Flickr images, but also some Twitter and news photos.","commercial":"Allowed (label)","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://github.com/joojs/fairface"}],"lane":"flickr","year":2021,"column":7,"y":122},{"id":"dif","name":"Diversity in Faces","subtitle":"⊘ Withdrawn","full":"IBM Diversity in Faces (DiF)","kind":"flickr","status":"Withdrawn","attrs":{"terms":"No longer downloadable. Subject of 2020 BIPA lawsuits (dismissed on jurisdiction or settled).","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.insideprivacy.com/data-privacy/what-the-diversity-in-faces-litigation-means-for-biometric-technologies/"}],"lane":"flickr","year":2019,"column":5,"y":176},{"id":"dive","name":"DiveFace","subtitle":"⚠ Parent withdrawn · NC","full":"DiveFace (BiDA Lab, UAM)","kind":"flickr","status":"Parent withdrawn","attrs":{"terms":"Non-commercial research for any modification or redistribution. Mostly CC BY-NC-ND images. Ships only lists + a MegaFace rebuild script.","commercial":"Non-commercial only","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://github.com/BiDAlab/DiveFace"}],"lane":"flickr","year":2020,"year_note":"Knowledge-base year. The SensitiveNets preprint (arXiv 1902.00334, February 2019) may have introduced DiveFace earlier; not verified.","column":6,"y":68},{"id":"bios","name":"Bias in Bios","subtitle":"Text only · bios","full":"Common Crawl Bios (De-Arteaga et al.)","kind":"text","status":"Available","attrs":{"terms":"~400K biographies scraped from Common Crawl. Terms not checked.","commercial":"Unclear","consent":"None"},"lane":"flickr","year":2019,"column":5,"y":284},{"id":"faircv","name":"FairCVdb","subtitle":"⚠ Parent withdrawn · NC","full":"FairCVdb (FairCVtest)","kind":"flickr","status":"Parent withdrawn","attrs":{"terms":"Warranty disclaimer only; no rights granted. Faces from DiveFace (may be embeddings + image list, not pixels); bios from Bias in Bios.","commercial":"Non-commercial only","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://github.com/BiDAlab/FairCVtest"}],"lane":"flickr","year":2020,"column":6,"y":176},{"id":"msceleb","name":"MS-Celeb-1M","subtitle":"⊘ Withdrawn","full":"Microsoft Celeb 1M","kind":"web","status":"Withdrawn","attrs":{"terms":"~10M search-engine images of ~100K people. Taken offline June 2019; copies persist.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.vice.com/en/article/microsoft-deleted-a-facial-recognition-database-but-its-not-dead/"}],"lane":"msceleb","year":2016,"column":3,"y":382},{"id":"rfw","name":"RFW","subtitle":"⚠ Parent withdrawn · NC","full":"Racial Faces in-the-Wild","kind":"web","status":"Parent withdrawn","attrs":{"terms":"Non-commercial research; no reproduction or redistribution; apply from an institutional email. Copies only LFW's pair protocol.","commercial":"Non-commercial only","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"http://whdeng.cn/RFW/testing.html"}],"lane":"msceleb","year":2019,"column":5,"y":436},{"id":"bupt","name":"BUPT-Balanced/Global","subtitle":"⚠ Parent withdrawn","full":"BUPT-Balancedface & BUPT-Globalface","kind":"web","status":"Parent withdrawn","attrs":{"terms":"Ethnicity-aware training sets (1.3M and 2M images). Terms not checked.","commercial":"Unclear","consent":"None"},"lane":"msceleb","year":2020,"column":6,"y":382},{"id":"casia","name":"CASIA-WebFace","subtitle":"Available","full":"CASIA-WebFace","kind":"web","status":"Available","attrs":{"terms":"Released \"for training purposes only\". Terms and current status not checked.","commercial":"Unclear","consent":"None"},"lane":"vgg","year":2014,"column":2,"y":534},{"id":"vggface","name":"VGGFace","subtitle":"⊘ Withdrawn (assumed)","full":"VGG Face (Oxford)","kind":"web","status":"Withdrawn","attrs":{"terms":"2.6M web images of 2,622 people. Status assumed withdrawn alongside VGGFace2; not verified.","commercial":"Unclear","consent":"None"},"lane":"vgg","year":2015,"column":2,"y":588},{"id":"vgg2","name":"VGGFace2","subtitle":"⊘ Withdrawn","full":"VGGFace2 (Oxford)","kind":"web","status":"Withdrawn","attrs":{"terms":"3.31M Google Image Search results of 9,131 public figures. Oxford download links removed.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.robots.ox.ac.uk/~vgg/data/vgg_face2/"}],"lane":"vgg","year":2018,"column":4,"y":534},{"id":"demog","name":"DemogPairs","subtitle":"⚠ Parent withdrawn","full":"DemogPairs (Hupont & Fernández)","kind":"web","status":"Parent withdrawn","attrs":{"terms":"10,800 images of 600 people in 6 balanced groups. Terms not checked.","commercial":"Unclear","consent":"None"},"lane":"vgg","year":2019,"column":5,"y":588},{"id":"bfw","name":"BFW","subtitle":"⚠ Parent withdrawn · CC BY label","full":"Balanced Faces in the Wild","kind":"web","status":"Parent withdrawn","attrs":{"terms":"Listed CC BY 4.0 on IEEE DataPort, but images are VGGFace2 Google Image Search results the authors don't own.","commercial":"Allowed (label)","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://ieee-dataport.org/documents/balanced-faces-wild"}],"lane":"vgg","year":2020,"column":6,"y":534},{"id":"news","name":"Names & Faces in News","subtitle":"News photos","full":"Yahoo! News captioned photos (Berg et al.)","kind":"other","status":"Available","attrs":{"terms":"~500K captioned press photos (2003–04). Agencies keep copyright. Terms not checked.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://adam.harvey.studio/origins-and-endpoints/"}],"lane":"lfw","year":2004,"column":0,"y":956},{"id":"lfw","name":"LFW","subtitle":"Available","full":"Labeled Faces in the Wild","kind":"other","status":"Available","attrs":{"terms":"No licence ever issued. A 2019 disclaimer (no legal force) warns against concluding commercial suitability.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://arxiv.org/html/2108.02922v2"}],"lane":"lfw","year":2007,"column":1,"y":956},{"id":"lfwa","name":"LFWA / LFWA+","subtitle":"Adds gender & race labels","full":"LFW Attributes (Liu et al., CUHK)","kind":"other","status":"Available","attrs":{"terms":"LFW images with attribute labels, released alongside CelebA. FairFace used LFWA+ as a comparison set with gender and merged race labels. Terms not checked.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html"}],"lane":"lfw","year":2015,"column":2,"y":1010},{"id":"lfwplus","name":"LFW+","subtitle":"Age, gender, race · NC","full":"LFW+ (Han & Jain, Michigan State)","kind":"other","status":"Available","attrs":{"terms":"About 15K images (LFW plus additions) with age, gender and race labels. Adds a non-commercial clause LFW itself never had.","commercial":"Non-commercial only","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.researchgate.net/publication/263697688_Age_Gender_and_Race_Estimation_from_Unconstrained_Face_Images"}],"lane":"lfw","year":2014,"column":2,"y":686},{"id":"mtfl","name":"MTFL","subtitle":"Landmarks + gender","full":"Multi-Task Facial Landmark dataset","kind":"other","status":"Available","attrs":{"terms":"Includes original LFW images with landmarks and attribute labels. Terms not checked.","commercial":"Unclear","consent":"None"},"lane":"lfw","year":2014,"year_note":"Not in the knowledge base: approximate, from the MTFL paper (Zhang et al., ECCV 2014).","column":2,"y":740},{"id":"smfrd","name":"SMFRD","subtitle":"Edited faces · shared","full":"Simulated Masked Face Recognition Dataset","kind":"other","status":"Available","attrs":{"terms":"LFW faces edited with synthetic masks and redistributed publicly, with no non-commercial clause. This is the \"share edited real faces\" case.","commercial":"Unclear","consent":"None"},"lane":"lfw","year":2020,"column":6,"y":956},{"id":"itwe","name":"ITWE","subtitle":"Available · NC","full":"ITWE (LFW derivative D36 in Peng et al.)","kind":"other","status":"Available","attrs":{"terms":"Includes original LFW images; carries a non-commercial clause. Purpose not verified.","commercial":"Non-commercial only","consent":"None"},"lane":"lfw","year_label":"Year unknown","place_year":2015,"year_note":"No year recorded; placed in the 2014–2015 column next to the other LFW derivatives for layout only.","column":2,"y":794},{"id":"lfwvar","name":"Aligned / 3D variants (6)","subtitle":"Re-processed images","full":"LFW-a, funneled, deep funneled, crop, LFW3D, Frontalized Faces in the Wild","kind":"other","status":"Available","attrs":{"terms":"Six datasets that align, crop or 3D-frontalize LFW images and redistribute them. No licence at any layer.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://arxiv.org/html/2108.02922v2"}],"lane":"lfw","year_label":"Years vary","place_year":2015,"year_note":"Group of six variants released in different years from 2007 on; placed in the 2014–2015 column for layout only.","column":2,"y":848},{"id":"lfwother","name":"Other derivatives (9)","subtitle":"Mostly unlicensed","full":"BLUFR, LFW87, Extended LFW, PubFig83+LFW, five unnamed","kind":"other","status":"Available","attrs":{"terms":"BLUFR is a protocol with no images. PubFig83+LFW mixes in PubFig, which is non-commercial and URL-only. Two unnamed sets add sensitive labels; one prohibits commercial use.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://arxiv.org/html/2108.02922v2"}],"lane":"lfw","year_label":"Years vary","place_year":2015,"year_note":"Group of nine derivatives released in different years; placed in the 2014–2015 column for layout only.","column":2,"y":902},{"id":"imdb","name":"IMDB-WIKI","subtitle":"Available","full":"IMDB-WIKI (ETH Zurich)","kind":"web","status":"Available","attrs":{"terms":"~523K images crawled from IMDb and Wikipedia profiles. No licence on download page.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://data.vision.ee.ethz.ch/cvl/rrothe/imdb-wiki/"}],"lane":"celeb","year":2015,"column":2,"y":1162},{"id":"cimdb","name":"Cleaned IMDB","subtitle":"Available","full":"Cleaned IMDB subset (Alvi et al.)","kind":"web","status":"Available","attrs":{"terms":"Lists only (60K age, 80K gender). Requires IMDB-WIKI images. No terms stated.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.robots.ox.ac.uk/~vgg/data/laofiw/"}],"lane":"celeb","year":2018,"column":4,"y":1162},{"id":"morph","name":"MORPH-II","subtitle":"Mugshot-style · NC","full":"MORPH Album 2 (UNC Wilmington)","kind":"other","status":"On request","attrs":{"terms":"Non-commercial academic release, separate from commercial edition. 65% African-American men.","commercial":"Non-commercial only","consent":"None"},"lane":"celeb","year":2006,"year_note":"Not in the knowledge base: approximate, from the MORPH paper (Ricanek & Tesafaye, FG 2006).","column":0,"y":1108},{"id":"utk","name":"UTKFace","subtitle":"Available · NC","full":"UTKFace (Univ. of Tennessee)","kind":"web","status":"Available","attrs":{"terms":"Non-commercial research only. Images \"collected from the Internet\"; per FairFace paper, from MORPH, CACD and web search. Untraceable per image.","commercial":"Non-commercial only","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://susanqq.github.io/UTKFace/"}],"lane":"celeb","year":2017,"column":3,"y":1108},{"id":"celeba","name":"CelebA","subtitle":"Available · NC","full":"CelebFaces Attributes (CUHK)","kind":"web","status":"Available","attrs":{"terms":"Non-commercial research; no copying or distributing any portion of images or derived data.","commercial":"Non-commercial only","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html"}],"lane":"none","year":2015,"column":2,"y":1260},{"id":"laofiw","name":"LAOFIW","subtitle":"⊘ Withdrawn","full":"Labeled Ancestral Origin Faces in the Wild","kind":"web","status":"Withdrawn","attrs":{"terms":"Bing Image Search with 43 nationality keywords. Privacy notice only; download links removed. Only 143 images traced to Flickr.","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.robots.ox.ac.uk/~vgg/data/laofiw/"}],"lane":"none","year":2018,"column":4,"y":1260},{"id":"ppb","name":"PPB","subtitle":"Official portraits","full":"Pilot Parliaments Benchmark","kind":"other","status":"On request","attrs":{"terms":"1,270 parliamentary portraits from 6 countries. Dataset terms unconfirmed (project page CC BY-NC-ND 4.0).","commercial":"Unclear","consent":"None"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.media.mit.edu/projects/gender-shades/overview/"}],"lane":"none","year":2018,"column":4,"y":1314},{"id":"fhibe","name":"FHIBE","subtitle":"✓ Consented · eval only","full":"Sony Fair Human-Centric Image Benchmark","kind":"other","status":"Available","attrs":{"terms":"10,318 images of 1,981 paid, consenting people from 81 countries (Xiang et al., Nature 2025). Terms of use: fairness/bias evaluation and mitigation only; no training except bias detection or mitigation methods; no race or gender classifiers; no re-identification. Account + terms required. Now hosted by Mozilla Data Collective, which handles consent revocation; old versions must be deleted.","commercial":"Evaluation only","consent":"Informed and revocable"},"refs":[{"label":"Primary source","short":"Source","url":"https://fairnessbenchmark.ai.sony/data-card/fhibe-datasheet"}],"lane":"none","year":2025,"column":7,"y":1260},{"id":"ccv2","name":"Casual Conv. v2","subtitle":"✓ Consented · video","full":"Meta Casual Conversations v2","kind":"other","status":"Available","attrs":{"terms":"Paid participants; limited licence, evaluation plus training on certain labels.","commercial":"Evaluation only","consent":"Informed and revocable"},"refs":[{"label":"Primary source","short":"Source","url":"https://ai.meta.com/datasets/casual-conversations-v2-dataset/"}],"lane":"none","year":2023,"column":7,"y":1314},{"id":"cfd","name":"Chicago Face Database","subtitle":"Studio photos · NC","full":"Chicago Face Database (Univ. of Chicago), core set","kind":"other","status":"On request","attrs":{"terms":"Standardized high-resolution photos of 597 people (self-identified Asian, Black, Latino or White). Distributed in one download with the CFD-MR and CFD-INDIA expansion sets (database v3.0.1); the terms below cover all three. Non-commercial scientific research only; no redistribution, including to cloud AI image tools; no identifying or contacting models, including by face recognition; at most four images in publications without permission. Download link emailed on request. Per Ma, Correll & Wittenbrink 2015, the original models were recruited by email through the Chicago Booth research lab, plus amateur actors via snowball sampling; each signed a consent/release form allowing use of their photos for research purposes and was paid $20 for a ~20-minute session. The paper covers only the first 158 Black and White models; no withdrawal mechanism is described.","commercial":"Non-commercial only","consent":"Signed release, research use"},"refs":[{"label":"Primary source","short":"Source","url":"https://www.chicagofaces.org/"}],"lane":"none","year":2015,"column":2,"y":1368},{"id":"cfdmr","kb":"cfd","name":"CFD-MR","subtitle":"Studio photos · NC","full":"Chicago Face Database: Multiracial expansion","kind":"other","status":"On request","attrs":{"terms":"Same terms of use as the Chicago Face Database: non-commercial scientific research only, no redistribution, no identifying or contacting models, at most four images in publications without permission. Download link emailed on request, with CFD and CFD-INDIA. 88 real multiracial individuals with self-reported race and ethnic ancestry. Models signed an in-person release for research use and were paid $20–$100 (Ma, Kantner & Wittenbrink 2020). No withdrawal mechanism is described.","commercial":"Non-commercial only","consent":"Signed release, research use"},"refs":[{"label":"Paper (DOI)","short":"DOI","url":"https://doi.org/10.3758/s13428-020-01482-5"},{"label":"Primary source","short":"Source","url":"https://www.chicagofaces.org/"}],"lane":"none","year":2020,"year_note":"Published online October 2020 (Behavior Research Methods 53(3), 2021).","column":6,"y":1368},{"id":"cfdindia","kb":"cfd","name":"CFD-INDIA","subtitle":"Studio photos · NC","full":"The India Face Set (CFD-INDIA expansion of the Chicago Face Database)","kind":"other","status":"On request","attrs":{"terms":"Same terms of use as the Chicago Face Database: non-commercial scientific research only, no redistribution, no identifying or contacting models, at most four images in publications without permission. Download link emailed on request, with CFD and CFD-MR. 142 individuals recruited in Delhi and photographed at the University of Chicago Center in Delhi, in the same grey t-shirt and setup as the CFD (Lakshmi et al. 2021). Models signed a release for research use (bilingual forms, read aloud where needed; University of Chicago IRB approval) and were paid Rs. 500. No withdrawal mechanism is described.","commercial":"Non-commercial only","consent":"Signed release, research use"},"refs":[{"label":"Paper (DOI)","short":"DOI","url":"https://doi.org/10.3389/fpsyg.2021.627678"},{"label":"Primary source","short":"Source","url":"https://www.chicagofaces.org/"}],"lane":"none","year":2021,"year_note":"Paper published February 2021; released as CFD version 3.0 in March 2021.","column":7,"y":1422},{"id":"feret","name":"FERET","subtitle":"Studio photos · on request","full":"Facial Recognition Technology (FERET) database; distributed by NIST as Color FERET (Version 2)","kind":"other","status":"On request","attrs":{"terms":"14,126 images of 1,199 people, photographed on 35mm film for the US DoD Counterdrug Technology Development Program at George Mason University and US Army Research Laboratory facilities, December 1993 to August 1996. Color FERET Release Agreement v1: released case by case to face recognition researchers, NIST download only; no further distribution, publication, copying or dissemination in any form, including within your own organization; at most 15 images, and only in papers on face recognition research; mandatory acknowledgement. No derivatives.","commercial":"Unclear","consent":"Not documented (no recruitment, consent or payment details published)"},"refs":[{"label":"Paper (DOI)","short":"DOI","url":"https://doi.org/10.1016/S0262-8856(97)00070-X"},{"label":"Primary source","short":"Source","url":"https://www.nist.gov/itl/products-and-services/color-feret-database"}],"lane":"none","year":1998,"year_note":"Year of the paper (Phillips, Wechsler, Huang & Rauss, Image and Vision Computing 16(5), 1998); images collected 1993–1996.","column":0,"y":1260},{"id":"harvey_ea","name":"Exposing.ai","subtitle":"Harvey & LaPlace · website","full":"Harvey, A. & LaPlace, J. Exposing.ai: investigations into face and biometric image training datasets","lane":"flickr","refs":[{"label":"Website","short":"Web","url":"https://exposing.ai/"}],"kind":"pub","column":8,"y":68},{"id":"pena2023","name":"Peña et al. 2023","subtitle":"2023 · SN Computer Science","full":"Peña, Serna, Morales, Fierrez, Ortega, Herrarte & Alcantara (2023). Human-Centric Multimodal Machine Learning: Recent Advances and Testbed on AI-Based Recruitment. SN Computer Science 4, 434.","lane":"vgg","refs":[{"label":"Paper","short":"Paper","url":"https://link.springer.com/article/10.1007/s42979-023-01733-0"},{"label":"arXiv","short":"arXiv","url":"https://arxiv.org/abs/2302.10908"}],"kind":"pub","column":8,"y":534},{"id":"harvey_oe","name":"Origins and Endpoints","subtitle":"Harvey · essay","full":"Harvey, A. Origins and Endpoints","lane":"lfw","refs":[{"label":"Essay","short":"Web","url":"https://adam.harvey.studio/origins-and-endpoints/"}],"kind":"pub","column":8,"y":740},{"id":"peng2021","name":"Peng et al. 2021","subtitle":"2021 · NeurIPS D&B","full":"Peng, K., Mathur, A. & Narayanan, A. (2021). Mitigating Dataset Harms Requires Stewardship: Lessons from 1000 Papers. NeurIPS Datasets and Benchmarks.","lane":"lfw","refs":[{"label":"arXiv","short":"arXiv","url":"https://arxiv.org/abs/2108.02922"}],"kind":"pub","column":8,"y":686}],"links":[{"from":"flickr","to":"yfcc","how":"from"},{"from":"flickr","to":"ffhq","how":"from"},{"from":"yfcc","to":"mega","how":"from"},{"from":"yfcc","to":"fairface","how":"from"},{"from":"yfcc","to":"dif","how":"from"},{"from":"mega","to":"dive","how":"from"},{"from":"dive","to":"faircv","how":"from"},{"from":"bios","to":"faircv","how":"from"},{"from":"msceleb","to":"rfw","how":"from"},{"from":"msceleb","to":"bupt","how":"from"},{"from":"casia","to":"demog","how":"from"},{"from":"vggface","to":"demog","how":"from"},{"from":"vgg2","to":"demog","how":"from"},{"from":"vgg2","to":"bfw","how":"from"},{"from":"news","to":"lfw","how":"from"},{"from":"lfw","to":"lfwa","how":"from"},{"from":"lfw","to":"lfwplus","how":"from"},{"from":"lfw","to":"mtfl","how":"from"},{"from":"lfw","to":"smfrd","how":"from"},{"from":"lfw","to":"itwe","how":"from"},{"from":"lfw","to":"lfwvar","how":"from"},{"from":"lfw","to":"lfwother","how":"from"},{"from":"imdb","to":"cimdb","how":"from"},{"from":"morph","to":"utk","how":"partly","label_dy":-1},{"from":"mega","to":"harvey_ea","how":"covered"},{"from":"dive","to":"harvey_ea","how":"covered"},{"from":"laofiw","to":"harvey_ea","how":"covered"},{"from":"morph","to":"pena2023","how":"covered"},{"from":"imdb","to":"pena2023","how":"covered"},{"from":"celeba","to":"pena2023","how":"covered"},{"from":"cimdb","to":"pena2023","how":"covered"},{"from":"laofiw","to":"pena2023","how":"covered"},{"from":"ppb","to":"pena2023","how":"covered"},{"from":"dif","to":"pena2023","how":"covered"},{"from":"rfw","to":"pena2023","how":"covered"},{"from":"demog","to":"pena2023","how":"covered"},{"from":"bios","to":"pena2023","how":"covered"},{"from":"faircv","to":"pena2023","how":"covered"},{"from":"dive","to":"pena2023","how":"covered"},{"from":"bupt","to":"pena2023","how":"covered"},{"from":"bfw","to":"pena2023","how":"covered"},{"from":"fairface","to":"pena2023","how":"covered"},{"from":"news","to":"harvey_oe","how":"covered"},{"from":"lfw","to":"harvey_oe","how":"covered"},{"from":"lfw","to":"peng2021","how":"covered"},{"from":"lfwplus","to":"peng2021","how":"covered"},{"from":"lfwa","to":"peng2021","how":"covered"},{"from":"mtfl","to":"peng2021","how":"covered"},{"from":"smfrd","to":"peng2021","how":"covered"},{"from":"itwe","to":"peng2021","how":"covered"},{"from":"lfwvar","to":"peng2021","how":"covered"},{"from":"lfwother","to":"peng2021","how":"covered"},{"from":"cfd","to":"cfdmr","how":"expansion"},{"from":"cfd","to":"cfdindia","how":"expansion"}],"toggles":[{"label":"Related publications","kinds":["pub"],"default":"show"}],"year_columns":[{"label":"2006 and earlier","until":2006},{"label":"2007–2013","until":2013},{"label":"2014–2015","until":2015},{"label":"2016–2017","until":2017},{"label":"2018","until":2018},{"label":"2019","until":2019},{"label":"2020","until":2020},{"label":"2021 and later"},{"label":"Related publications","kinds":["pub"]}],"columns":["2006 and earlier","2007–2013","2014–2015","2016–2017","2018","2019","2020","2021 and later","Related publications"],"site":{"nav":[{"label":"All maps","href":"index.html"},{"label":"Knowledge base","href":"kb.html"}],"kb_page":"kb.html","kb_ids":{"yfcc":"yfcc","ffhq":"ffhq","mega":"mega","fairface":"fairface","dif":"dif","dive":"dive","bios":"bios","faircv":"faircv","msceleb":"msceleb","rfw":"rfw","bupt":"bupt","casia":"casia","vggface":"vggface","vgg2":"vgg2","demog":"demog","bfw":"bfw","news":"news","lfw":"lfw","lfwa":"lfwa","lfwplus":"lfwplus","mtfl":"mtfl","smfrd":"smfrd","itwe":"itwe","lfwvar":"lfwvar","lfwother":"lfwother","imdb":"imdb","cimdb":"cimdb","morph":"morph","utk":"utk","celeba":"celeba","laofiw":"laofiw","ppb":"ppb","fhibe":"fhibe","ccv2":"ccv2","cfd":"cfd","cfdmr":"cfd","cfdindia":"cfd","feret":"feret"}}}</script>
+<script>
+// ---- Generic lineage renderer. All content comes from the JSON block above (built from YAML by build.py). ----
+const DATA = JSON.parse(document.getElementById('lineage-data').textContent);
+const LAY = Object.assign({ node_width: 170, node_height: 46, top: 52, row_height: 58, first_x: 24, first_gap: 276, col_gap: 220, min_curve: 40 }, DATA.layout || {});
+const W = LAY.node_width, H = LAY.node_height, TOP = LAY.top, ROW = LAY.row_height;
+const KIND = Object.fromEntries(Object.entries(DATA.kinds).map(([k, v]) => [k, { label: v.label, legend: v.legend || v.label, v: '--' + v.color }]));
+const STATUS = DATA.statuses || {};
+const FIELDS = DATA.node_fields || [];
+const LL = DATA.links_legend || {};
+const LTYPE = DATA.link_types || { paper: { legend: LL.paper || 'Source stated in the citing paper' }, inferred: { legend: LL.inferred || 'Inferred', dashed: true, tag: 'inferred' } };
+const COLS = DATA.columns.map((label, i) => ({ label, x: LAY.first_x + (i === 0 ? 0 : LAY.first_gap + (i - 1) * LAY.col_gap) }));
+const cx = i => COLS[i].x;
+const row = i => TOP + i * ROW;
+const posY = (n, i) => n.y != null ? n.y : row(n.row != null ? n.row : i);
+const refsOf = (n, isPaper) => n.refs || (n.url ? [{ label: isPaper ? 'Paper (DOI)' : 'Source', short: isPaper ? 'DOI' : 'Source', url: n.url }] : []);
+
+// datasets: the traced left-column boxes (id = dataset key); nodes/papers: all other boxes
+const DSLIST = DATA.datasets || [];
+const NODES = [...(DATA.papers || []), ...(DATA.nodes || [])];
+const D = [
+  ...DSLIST.map((d, i) => ({ id: d.id, name: d.name, sub: d.source || '', full: d.source_full || d.source || '', c: 0, y: posY(d, i), k: d.kind, refs: refsOf(d, false), isDs: true })),
+  ...NODES.map(p => { const k = p.kind || 'paper'; return { id: p.id, name: p.name, sub: p.subtitle || '', full: p.full || p.name, c: p.column, y: posY(p), k, refs: refsOf(p, k === 'paper'), note: p.note, status: p.status, attrs: p.attrs || {}, own: p.created && p.created.length ? p.created.map(t => ['', t]) : undefined, year: p.year_label || (p.year != null ? String(p.year) : ''), yearNote: p.year_note }; })
+];
+D.forEach(d => { if (d.year) { if (d.attrs) d.attrs.year = d.year; if (LAY.year_in_subtitle) d.sub = d.year + (d.sub ? ' · ' + d.sub : ''); } });
+D.forEach((d, i) => { const src = i < DSLIST.length ? DSLIST[i] : NODES[i - DSLIST.length]; d.x = src.x != null ? src.x : cx(d.c); });
+const DS = Object.fromEntries(DSLIST.map(d => [d.id, { name: d.title || d.name, aka: d.aka || '', real: d.real || '', path: d.path || '', sizes: d.sizes || '', get: d.get || '', note: d.note }]));
+const E = DATA.links.map(l => ({ lin: (LTYPE[l.how || Object.keys(LTYPE)[0]] || {}).lineage !== false, s: l.from, t: l.to, l: l.label || '', ds: l.datasets || [], how: l.how || Object.keys(LTYPE)[0], n: l.note, lt: l.label_pos, ly: l.label_dy, off: l.offset }));
+const tagOf = e => (LTYPE[e.how] || {}).tag || '';
+const TOGGLED = new Set((DATA.toggles || []).flatMap(t => t.kinds));
+let TOGS = [];
+const hiddenEdge = i => [E[i].s, E[i].t].some(id => { const t = TOGS.find(t => t.kinds.has(byId[id].k)); return t && t.mode === 'hide'; });
+
+// page text and legend
+document.title = DATA.page_title || DATA.title;
+document.getElementById('title').textContent = DATA.title;
+document.getElementById('lede').innerHTML = DATA.intro || '';
+document.getElementById('vizTitle').textContent = DATA.svg_title || DATA.title;
+document.getElementById('hint').innerHTML = DATA.panel_hint || '';
+document.getElementById('foot').innerHTML = DATA.footer || '';
+(() => {
+  const used = new Set(D.map(d => d.k)), usedHow = new Set(E.map(e => e.how)), usedSt = new Set(D.map(d => d.status));
+  const sw = k => `<span><i class="sw" style="border-color:var(${KIND[k].v});background:color-mix(in srgb,var(${KIND[k].v}) 14%,transparent)"></i>${KIND[k].legend}</span>`;
+  let html = Object.keys(KIND).filter(k => used.has(k)).map(sw).join('');
+  html += Object.entries(LTYPE).filter(([k]) => usedHow.has(k) || k === 'paper').map(([k, t]) => `<span><i class="ln${t.dashed ? ' dash' : t.dotted ? ' dot' : ''}"></i>${t.legend}</span>`).join('');
+  html += Object.entries(STATUS).filter(([k, s]) => s.dashed && usedSt.has(k)).map(([k, s]) => `<span><i class="box-dash"></i>${s.legend || k}</span>`).join('');
+  document.getElementById('legend').innerHTML = html;
+  if (!DSLIST.length) document.getElementById('tracer').style.display = 'none';
+  if (!DSLIST.length) document.getElementById('dtable').style.display = 'none';
+  document.getElementById('ntitle').textContent = DATA.node_table_title || 'Paper and source table';
+})();
+
+const byId = Object.fromEntries(D.map(d => [d.id, d]));
+const parents = {}, children = {}, xin = {}, xout = {};
+D.forEach(d => { parents[d.id] = []; children[d.id] = []; xin[d.id] = []; xout[d.id] = []; });
+E.forEach((e, i) => { (e.lin ? parents : xin)[e.t].push(i); (e.lin ? children : xout)[e.s].push(i); });
+
+const svgNS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('viz');
+const VW = LAY.width || Math.max(...D.map(d => d.x)) + W + 16, VH = LAY.height || Math.max(...D.map(d => d.y)) + H + 30;
+svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+if (DATA.labels === 'always') svg.classList.add('alllabels');
+if (LAY.min_width) { svg.style.minWidth = LAY.min_width + 'px'; svg.parentNode.style.overflowX = 'auto'; }
+const css = getComputedStyle(document.querySelector('.viz-root'));
+const el = (t, a, parent = svg) => { const e = document.createElementNS(svgNS, t); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+const defs = el('defs', {});
+const mk = el('marker', { id:'arr', viewBox:'0 0 10 10', refX:'9', refY:'5', markerWidth:'6', markerHeight:'6', orient:'auto-start-reverse' }, defs);
+el('path', { d:'M0,0 L10,5 L0,10 z', fill:'var(--muted)' }, mk);
+
+if (DATA.lanes) {
+  if (DATA.columns.some(c => c)) {
+    const y0 = Math.min(...DATA.lanes.map(l => l.y)), y1 = Math.max(...DATA.lanes.map(l => l.y + l.h));
+    COLS.forEach((c, i) => {
+      if (i) el('line', { class:'col-sep', x1:c.x - (c.x - COLS[i - 1].x - W) / 2, x2:c.x - (c.x - COLS[i - 1].x - W) / 2, y1:y0 - 22, y2:y1, 'data-col':i });
+      const t = el('text', { class:'col-label', x:c.x, y:y0 - 10, 'data-col':i }); t.textContent = c.label;
+    });
+  }
+  DATA.lanes.forEach(l => {
+    el('rect', { class:'lane-band', x:10, y:l.y, width:VW - 20, height:l.h, rx:10 });
+    const t = el('text', { class:'lane-label', x:LAY.first_x, y:l.label_y != null ? l.label_y : l.y + 18 }); t.textContent = l.label;
+  });
+} else {
+  COLS.forEach(c => {
+    el('rect', { class:'lane-band', x:c.x - 12, y:8, width:W + 24, height:VH - 16, rx:10 });
+    const t = el('text', { class:'lane-label', x:c.x, y:30 }); t.textContent = c.label;
+  });
+}
+
+// edges
+const edgeEls = [], labelEls = [];
+const gEdges = el('g', {}), gLabels = el('g', {});
+E.forEach((e, i) => {
+  const s = byId[e.s], t = byId[e.t], off = e.off || 0;
+  const lt = LTYPE[e.how] || {}, vert = s.x === t.x;
+  let x1 = s.x + W, y1 = s.y + H/2 + off/2, x2 = t.x - 2, y2 = t.y + H/2 + off, dx = Math.max(LAY.min_curve, (x2 - x1) / 2), d;
+  if (vert) { x1 = x2 = s.x + W/2 + off; y1 = s.y + H; y2 = t.y - 2; dx = 0; d = `M${x1},${y1} L${x2},${y2}`; }
+  else d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+  const p = el('path', { class:'edge' + (lt.dashed ? ' dashed' : '') + (lt.dotted ? ' dotted' : '') + (lt.quiet ? ' quiet' : ''), d, 'marker-end':'url(#arr)' }, gEdges);
+  const hit = el('path', { class:'edge-hit', d }, gEdges);
+  const tt = el('title', {}, hit); tt.textContent = `${s.name} → ${t.name}${e.l ? ': ' + e.l : ''}\n${e.n || ''}`;
+  hit.addEventListener('mouseenter', () => { if (!pinned && !activeDs) focusEdges(new Set([i])); });
+  hit.addEventListener('mouseleave', () => { if (!pinned && !activeDs) clearFocus(); });
+  p.dataset.i = i; edgeEls.push(p);
+  // label position on the cubic at parameter lt
+  const u = e.lt ?? .5, m = 1 - u;
+  const lx = m*m*m*x1 + 3*m*m*u*(x1+dx) + 3*m*u*u*(x2-dx) + u*u*u*x2;
+  const ly = m*m*m*y1 + 3*m*m*u*y1 + 3*m*u*u*y2 + u*u*u*y2;
+  const lb = el('text', vert ? { class:'edge-label', x:x1 + 6, y:(y1 + y2) / 2 + 4 + (e.ly || 0) } : { class:'edge-label', x:lx, y:ly - 4 + (e.ly || 0), 'text-anchor':'middle' }, gLabels);
+  lb.textContent = e.l || (LTYPE[e.how] || {}).label || ''; lb.dataset.i = i; labelEls.push(lb);
+});
+
+// nodes
+const nodeEls = {};
+D.forEach(d => {
+  const c = css.getPropertyValue(KIND[d.k].v).trim();
+  const st = STATUS[d.status] || {};
+  const g = el('g', { class:'node' + (st.dashed ? ' dashed' : ''), tabindex:'0', role:'button', 'aria-label':`${d.name}: ${KIND[d.k].label}${d.status ? ', ' + d.status : ''}`, transform:`translate(${d.x},${d.y})` });
+  el('rect', { class:'hit', x:-6, y:-6, width:W+12, height:H+12, rx:10 }, g);
+  el('rect', { class:'body', width:W, height:H, rx:6, fill:`color-mix(in srgb, ${c} 13%, var(--surface-1))`, stroke:c }, g);
+  const n = el('text', { class:'name', x:10, y:19 }, g); n.textContent = d.name;
+  const s = el('text', { class:'sub', x:10, y:35 }, g); s.textContent = d.sub || '';
+  nodeEls[d.id] = g;
+  const isDs = d.isDs;
+  if (isDs) g.classList.add('dsnode');
+  g.addEventListener('mouseenter', () => { if (!pinned && !activeDs) (isDs ? previewDs(d.id) : focusNode(d.id)); });
+  g.addEventListener('focus', () => { if (!pinned && !activeDs) (isDs ? previewDs(d.id) : focusNode(d.id)); });
+  g.addEventListener('mouseleave', () => { if (!pinned && !activeDs) clearFocus(); });
+  const act = () => isDs ? showDs(d.id) : pin(d.id);
+  g.addEventListener('click', ev => { ev.stopPropagation(); act(); });
+  g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); act(); } if (ev.key === 'Escape') reset(); });
+});
+svg.addEventListener('click', reset);
+
+let pinned = null, activeDs = null;
+const walk = (id, dir, acc = new Set()) => {
+  (dir === 'up' ? parents[id] : children[id]).forEach(i => { const o = dir === 'up' ? E[i].s : E[i].t; if (!acc.has(o)) { acc.add(o); walk(o, dir, acc); } });
+  return acc;
+};
+function focusEdges(edgeSet) {
+  const keep = new Set(); edgeSet.forEach(i => { keep.add(E[i].s); keep.add(E[i].t); });
+  svg.classList.add('focusing');
+  for (const k in nodeEls) nodeEls[k].classList.toggle('dim', !keep.has(k));
+  edgeEls.forEach((p, i) => { const on = edgeSet.has(i); p.classList.toggle('dim', !on); p.classList.toggle('on', on); labelEls[i].classList.toggle('dim', !on); labelEls[i].classList.toggle('on', on); });
+}
+function focusNode(id) {
+  // edges on any path through this node: ancestors' edges into the lineage + descendants
+  const up = walk(id, 'up'), down = walk(id, 'down'), keep = new Set([id, ...up, ...down]);
+  const es = new Set();
+  E.forEach((e, i) => { if (e.lin && (keep.has(e.s) && keep.has(e.t)) && ((up.has(e.s) || e.s === id) && (up.has(e.t) || e.t === id) || (down.has(e.t) || e.t === id) && (down.has(e.s) || e.s === id))) es.add(i); });
+  [...xin[id], ...xout[id]].forEach(i => { if (!hiddenEdge(i)) es.add(i); });
+  focusEdges(es);
+  renderNode(id);
+}
+function clearFocus() {
+  svg.classList.remove('focusing');
+  for (const k in nodeEls) nodeEls[k].classList.remove('dim');
+  edgeEls.forEach((p, i) => { p.classList.remove('dim', 'on'); labelEls[i].classList.remove('dim', 'on'); });
+}
+function reset() {
+  pinned = null; activeDs = null;
+  for (const k in nodeEls) nodeEls[k].classList.remove('pinned');
+  chips.forEach(b => b.setAttribute('aria-pressed', 'false'));
+  clearFocus(); panel.innerHTML = hintHTML;
+}
+function pin(id) {
+  activeDs = null; chips.forEach(b => b.setAttribute('aria-pressed', 'false'));
+  pinned = pinned === id ? null : id;
+  for (const k in nodeEls) nodeEls[k].classList.toggle('pinned', k === pinned);
+  if (pinned) focusNode(id); else reset();
+}
+const dsEdges = key => { const es = new Set(); E.forEach((e, i) => { if (e.ds.includes(key)) es.add(i); }); return es; };
+function previewDs(key) { focusEdges(dsEdges(key)); renderDs(key); }
+function showDs(key) {
+  if (activeDs === key) { reset(); return; }
+  pinned = null; for (const k in nodeEls) nodeEls[k].classList.remove('pinned');
+  activeDs = key;
+  chips.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === key)));
+  for (const k in nodeEls) nodeEls[k].classList.toggle('pinned', k === key);
+  focusEdges(dsEdges(key)); renderDs(key);
+}
+
+// panel
+const panel = document.getElementById('panel');
+const hintHTML = panel.innerHTML;
+const dsLink = k => `<span class="ds" data-ds="${k}">${esc(DS[k].name)}</span>`;
+function bindDs() { panel.querySelectorAll('.ds').forEach(s => s.addEventListener('click', () => showDs(s.dataset.ds))); }
+const statusChip = d => d.status ? `<span class="chip">${STATUS[d.status] && STATUS[d.status].badge ? STATUS[d.status].badge + ' ' : ''}${esc(d.status)}</span>` : '';
+const fieldsHTML = d => FIELDS.filter(f => f.panel !== false && d.attrs[f.key] != null).map(f => `<div class="k">${esc(f.label)}</div><p>${esc(d.attrs[f.key])}${f.key === 'year' && d.yearNote ? `<br><span class="from">${esc(d.yearNote)}</span>` : ''}</p>`).join('');
+const crossHTML = id => {
+  // non-lineage link types (e.g. 'covered in publication'), grouped by type and direction
+  const out = [];
+  Object.entries(LTYPE).filter(([, t]) => t.lineage === false).forEach(([how, t]) => {
+    const o = xout[id].filter(i => E[i].how === how && !hiddenEdge(i)).map(i => esc(byId[E[i].t].name));
+    const n = xin[id].filter(i => E[i].how === how && !hiddenEdge(i)).map(i => esc(byId[E[i].s].name));
+    if (o.length) out.push(`<div class="k">${esc(t.panel_out || t.legend)}</div><p>${o.join(', ')}</p>`);
+    if (n.length) out.push(`<div class="k">${esc(t.panel_in || t.legend)} (${n.length})</div><p>${n.join(', ')}</p>`);
+  });
+  return out.join('');
+};
+const SITE = DATA.site || {};
+const kbLink = id => SITE.kb_page && (SITE.kb_ids || {})[id] ? `<a href="${esc(SITE.kb_page)}#${encodeURIComponent(SITE.kb_ids[id])}">Knowledge base entry →</a>` : '';
+const refsHTML = d => `<div class="links">${d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)} ↗</a>`).join('')}${kbLink(d.id)}</div>`;
+function chainUp(id, seen = new Set()) {
+  // longest path back to a root, for the provenance chain line
+  if (seen.has(id)) return [id];
+  const ps = parents[id]; if (!ps.length) return [id];
+  let best = []; ps.forEach(i => { const c = chainUp(E[i].s, new Set([...seen, id])); if (c.length > best.length) best = c; });
+  return [...best, id];
+}
+function renderNode(id) {
+  const d = byId[id], c = css.getPropertyValue(KIND[d.k].v).trim();
+  const inc = parents[id].map(i => E[i]), out = children[id].map(i => E[i]);
+  const tagged = (e, sep) => tagOf(e) ? sep + tagOf(e) : '';
+  const head = `
+    <h2>${esc(d.name)}</h2><p class="full">${esc(d.full)}</p>
+    <span class="chip"><i style="background:${c}"></i>${esc(KIND[d.k].label)}</span>${statusChip(d)}`;
+  if (DATA.panel === 'lineage') {
+    // dataset-to-dataset maps: attributes, provenance chain, parents, all descendants
+    const chain = chainUp(id), down = [...walk(id, 'down')];
+    if (TOGGLED.has(d.k) && !inc.length && !down.length) { panel.innerHTML = `${head}${fieldsHTML(d)}${crossHTML(id)}${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}${refsHTML(d)}`; return; }
+    panel.innerHTML = `${head}
+    ${fieldsHTML(d)}
+    ${chain.length > 1 ? `<div class="k">Provenance chain</div><p class="chain">${chain.map(k => esc(byId[k].name)).join(' → ')}</p>` : ''}
+    <div class="k">Built from</div><p>${inc.length ? inc.map(e => esc(byId[e.s].name) + (tagOf(e) ? ` (${esc(tagOf(e))})` : '')).join(', ') : 'No upstream dataset in this map'}</p>
+    <div class="k">Downstream</div><p>${down.length ? down.map(k => esc(byId[k].name)).join(', ') : 'None in this map'}</p>
+    ${crossHTML(id)}
+    ${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}
+    ${refsHTML(d)}`;
+    return;
+  }
+  const li = (e, other) => `<li><b>${esc(e.l)}</b> <span class="from">${other}${tagged(e, ' · ')}</span>${e.n ? `<br><span class="from">${esc(e.n)}</span>` : ''}</li>`;
+  panel.innerHTML = `${head}
+    ${fieldsHTML(d)}
+    ${inc.length ? `<div class="k">Datasets taken</div><ul>${inc.map(e => li(e, '← ' + esc(byId[e.s].name))).join('')}</ul>` : ''}
+    ${d.own ? `<div class="k">Datasets created here</div><ul>${d.own.map(o => `<li>${esc(o[1])}</li>`).join('')}</ul>` : ''}
+    ${out.length ? `<div class="k">Supplied to</div><ul>${out.map(e => `<li><b>${esc(e.l)}</b> <span class="from">→ ${esc(byId[e.t].name)}${tagged(e, ' · ')}</span></li>`).join('')}</ul>` : ''}
+    ${d.note ? `<div class="k">Note</div><p>${esc(d.note)}</p>` : ''}
+    ${DSLIST.length ? `<div class="k">Trace</div><p>${[...new Set([...inc, ...out].flatMap(e => e.ds))].map(dsLink).join(' · ') || '—'}</p>` : ''}
+    ${refsHTML(d)}`;
+  bindDs();
+}
+function renderDs(k) {
+  const s = DS[k], src = byId[k], c = css.getPropertyValue(KIND[src.k].v).trim();
+  const es = E.filter(e => e.ds.includes(k)), u = src.refs[0];
+  panel.innerHTML = `
+    <h2>${esc(s.name)}</h2>${s.aka ? `<p class="full">Also: ${esc(s.aka)}</p>` : ''}
+    <span class="chip"><i style="background:${c}"></i>${esc(KIND[src.k].label)}</span>
+    <div class="k">Original source</div><p>${esc(src.sub)}: ${esc(src.full)}${u ? ` · <a href="${esc(u.url)}" target="_blank" rel="noopener">link ↗</a>` : ''}</p>
+    ${s.real ? `<div class="k">Real or synthetic</div><p>${esc(s.real)}</p>` : ''}
+    ${s.path ? `<div class="k">Path</div><p>${esc(s.path)}</p>` : ''}
+    ${s.sizes ? `<div class="k">Sizes as reported</div><p>${esc(s.sizes)}</p>` : ''}
+    ${s.note ? `<div class="k">Note</div><p>${esc(s.note)}</p>` : ''}
+    ${s.get ? `<div class="k">Where to get it</div><p>${esc(s.get)}</p>` : ''}
+    <div class="k">Links on the map (${es.length})</div><ul>${es.map(e => `<li>${esc(byId[e.s].name)} → ${esc(byId[e.t].name)} <span class="from">(${esc(e.l)}${tagOf(e) ? ', ' + esc(tagOf(e)) : ''})</span></li>`).join('')}</ul>${kbLink(k) ? `<div class="links">${kbLink(k)}</div>` : ''}`;
+}
+
+// dataset chips
+const chipBox = document.getElementById('chips');
+const order = DSLIST.map(d => d.id);
+const chips = order.map(k => {
+  const b = document.createElement('button');
+  b.className = 'dchip'; b.dataset.k = k; b.setAttribute('aria-pressed', 'false');
+  const n = E.filter(e => e.ds.includes(k)).length;
+  b.innerHTML = `<i style="background:${css.getPropertyValue(KIND[byId[k].k].v).trim()}"></i>${esc(DS[k].name)}<span class="ct">${n}</span>`;
+  b.title = `${DS[k].name}: ${DS[k].path}`;
+  b.addEventListener('click', ev => { ev.stopPropagation(); showDs(k); });
+  chipBox.appendChild(b);
+  return b;
+});
+document.getElementById('labelToggle').addEventListener('change', ev => svg.classList.toggle('alllabels', ev.target.checked));
+
+// tables
+const dt = document.querySelector('#dtbl tbody');
+order.forEach(k => {
+  const s = DS[k], tr = document.createElement('tr');
+  tr.innerHTML = `<td><b>${esc(s.name)}</b>${s.aka ? `<br><span style="color:var(--text-secondary)">${esc(s.aka)}</span>` : ''}</td><td>${esc(byId[k].sub)}</td><td>${esc(s.real)}</td><td>${esc(s.path)}</td><td class="sz">${esc(s.sizes).replace(/ · /g, '<br>')}</td><td>${esc(s.get)}</td>`;
+  dt.appendChild(tr);
+});
+const NCOLS = DATA.node_table || [
+  { col: 'name', label: 'Node' }, { col: 'kind', label: 'Type' }, { col: 'from', label: 'Datasets taken (from)' },
+  { col: 'to', label: 'Datasets supplied (to)' }, { col: 'links', label: 'Link' }
+];
+document.querySelector('#ntbl thead').innerHTML = `<tr>${NCOLS.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr>`;
+const nt = document.querySelector('#ntbl tbody');
+const cell = (c, d) => {
+  if (c.col === 'name') return `<b>${esc(d.name)}</b><br><span style="color:var(--text-secondary)">${esc(d.full)}</span>`;
+  if (c.col === 'kind') return esc(KIND[d.k].label);
+  if (c.col === 'status') return esc(d.status || '');
+  if (c.col === 'field') return esc(d.attrs[c.key] != null ? d.attrs[c.key] : '');
+  if (c.col === 'from') return parents[d.id].map(i => E[i].l ? `${esc(E[i].l)} (${esc(byId[E[i].s].name)}${tagOf(E[i]) ? ', ' + esc(tagOf(E[i])) : ''})` : esc(byId[E[i].s].name) + (tagOf(E[i]) ? ` (${esc(tagOf(E[i]))})` : '')).join(E.some(e => e.l) ? '; ' : ', ') || '—';
+  if (c.col === 'to') return children[d.id].map(i => E[i].l ? `${esc(E[i].l)} (${esc(byId[E[i].t].name)})` : esc(byId[E[i].t].name)).join(E.some(e => e.l) ? '; ' : ', ') || '—';
+  if (c.col === 'year') return esc(d.year || '');
+  if (c.col === 'linked') return [...xout[d.id].filter(i => E[i].how === c.how).map(i => E[i].t), ...xin[d.id].filter(i => E[i].how === c.how).map(i => E[i].s)].map(k => `<span data-node="${esc(k)}">${esc(byId[k].name)}</span>`).join(', ') || '—';
+  if (c.col === 'links') return d.refs.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.short || r.label)}</a>`).join(' · ');
+  return '';
+};
+const rowEls = {};
+D.forEach(d => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = NCOLS.map(c => `<td>${cell(c, d)}</td>`).join('');
+  nt.appendChild(tr); rowEls[d.id] = tr;
+});
+
+// toggles: show / grey out / hide groups of node kinds (with their links, table rows and panel mentions)
+TOGS = (DATA.toggles || []).map(t => ({ ...t, kinds: new Set(t.kinds), mode: t.default || 'show' }));
+function applyToggles() {
+  const mode = k => { const t = TOGS.find(t => t.kinds.has(k)); return t ? t.mode : 'show'; };
+  const nm = id => mode(byId[id].k);
+  D.forEach(d => { const m = nm(d.id); [nodeEls[d.id], rowEls[d.id]].forEach(x => { x.classList.toggle('tg-grey', m === 'grey'); x.classList.toggle('tg-hide', m === 'hide'); }); });
+  E.forEach((e, i) => { const m = [nm(e.s), nm(e.t)].includes('hide') ? 'hide' : [nm(e.s), nm(e.t)].includes('grey') ? 'grey' : 'show'; [edgeEls[i], edgeEls[i].nextSibling, labelEls[i]].forEach(x => { x.classList.toggle('tg-grey', m === 'grey'); x.classList.toggle('tg-hide', m === 'hide'); }); });
+  // in-table mentions of hidden nodes
+  nt.querySelectorAll('[data-node]').forEach(s => s.classList.toggle('tg-hide', nm(s.dataset.node) === 'hide'));
+  // shrink the drawing when whole columns are hidden
+  const vis = D.filter(d => nm(d.id) !== 'hide'), w = LAY.width || Math.max(...vis.map(d => d.x)) + W + 16;
+  svg.setAttribute('viewBox', `0 0 ${w} ${VH}`);
+  svg.querySelectorAll('rect.lane-band').forEach(r => r.setAttribute('width', w - 20));
+  svg.querySelectorAll('[data-col]').forEach(x => x.classList.toggle('tg-hide', COLS[+x.dataset.col].x >= w));
+  if (LAY.min_width) svg.style.minWidth = Math.round(LAY.min_width * w / VW) + 'px';
+  if (pinned) renderNode(pinned);
+}
+if (TOGS.length) {
+  const bar = document.getElementById('toolbar'); bar.hidden = false;
+  TOGS.forEach(t => {
+    const lab = document.createElement('span'); lab.className = 'lbl'; lab.textContent = t.label; bar.appendChild(lab);
+    const seg = document.createElement('span'); seg.className = 'seg'; seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', t.label);
+    [['show', 'Show'], ['grey', 'Grey out'], ['hide', 'Hide']].forEach(([m, txt]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; b.dataset.m = m;
+      b.setAttribute('aria-pressed', String(t.mode === m));
+      b.addEventListener('click', () => { t.mode = m; seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.m === m))); applyToggles(); });
+      seg.appendChild(b);
+    });
+    bar.appendChild(seg);
+  });
+  applyToggles();
+}
+
+// site navigation and deep links (map.html#<box id> selects that box)
+if (SITE.nav) {
+  const nav = document.getElementById('sitenav'); nav.hidden = false;
+  nav.innerHTML = SITE.nav.map(n => `<a href="${esc(n.href)}">${esc(n.label)}</a>`).join('');
+}
+function fromHash() {
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (!byId[id]) return;
+  if (byId[id].isDs) { activeDs = null; showDs(id); } else { pinned = null; pin(id); }
+  if (nodeEls[id].scrollIntoView) nodeEls[id].scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+window.addEventListener('hashchange', fromHash);
+fromHash();
+</script>
+</body>
+</html>

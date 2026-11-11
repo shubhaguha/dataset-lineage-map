@@ -1,5 +1,5 @@
 # Face image dataset lineage map: where each dataset's images came from.
-# Build:  python build.py data/face-image-datasets.yaml face-image-datasets-lineage.html
+# Build:  python build.py   (whole site into docs/; this map becomes docs/face-image-datasets.html)
 #
 # Uses the extended schema: no traced `datasets` column; every box is a dataset under `nodes`,
 # coloured by image origin (kinds), with a status, attrs shown in the panel/table (node_fields),
@@ -23,8 +23,7 @@ panel_hint: >-
   Select a dataset to see its terms, its parents and children, and a link to its primary source.<br><br>Datasets shown with
   no lines have no upstream source shared with any other dataset here.
 footer: >-
-  Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the Face Dataset Provenance Knowledge
-  Base in Notion. Status of VGGFace is assumed, not verified. Years come from the knowledge base; the few that are approximate
+  Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the <a href="kb.html">knowledge base</a>. Status of VGGFace is assumed, not verified. Years come from the knowledge base; the few that are approximate
   or unknown are marked in each dataset's panel.
 node_table_title: Table view (38 entries plus Flickr and 4 publications)
 layout:
@@ -44,6 +43,7 @@ layout:
   auto_rows: true
 lanes:
 - id: flickr
+  kb: false
   label: Flickr / YFCC100M family
 - id: msceleb
   label: MS-Celeb-1M family
@@ -143,6 +143,7 @@ node_table:
   label: Links
 nodes:
 - id: flickr
+  kb: false
   name: Flickr.com
   subtitle: Source platform
   full: Photo-sharing platform
@@ -737,6 +738,7 @@ nodes:
   lane: none
   year: 2015
 - id: cfdmr
+  kb: cfd
   name: CFD-MR
   subtitle: Studio photos · NC
   full: 'Chicago Face Database: Multiracial expansion'
@@ -761,6 +763,7 @@ nodes:
   year: 2020
   year_note: Published online October 2020 (Behavior Research Methods 53(3), 2021).
 - id: cfdindia
+  kb: cfd
   name: CFD-INDIA
   subtitle: Studio photos · NC
   full: The India Face Set (CFD-INDIA expansion of the Chicago Face Database)

@@ -1,11 +1,13 @@
 # Fairness extension of the data-quality lineage map: adds demodq (Guha et al., TKDE 2024)
 # and traces its five datasets.
-# Build:  python build.py data/fair-data-quality.yaml fair-data-quality-lineage.html
+# Build:  python build.py   (whole site into docs/; this map becomes docs/fair-data-quality.html)
 #
 # `extends` pulls in everything from data-quality.yaml. Entries below with an existing id
 # patch that entry field by field (adult, cleanml); new ids and all links are appended.
 
 extends: data-quality.yaml
+page_title: Data Quality and Fairness Lineage Map
+title: Where data-cleaning and fairness benchmark datasets come from
 footer: >-
   Sources: the dataset sections and references of each paper on the map, read in full (ADR, Raha, Baran, HoloClean, BART, Detecting data errors, Holistic, NADEEF, Truth finding, REIN, CleanML, demodq TKDE 2024), CleanML's dataset descriptions and the BigDaMa/raha GitHub repository (November 2026). Dashed links are inferences, not claims made by the authors. Download links come from the papers and were not re-checked.
 datasets:

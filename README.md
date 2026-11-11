@@ -1,8 +1,32 @@
-# Data quality dataset lineage
+# Dataset lineage maps
 
-`data-quality-lineage.html` is an interactive map of where the benchmark datasets used in data-cleaning papers come from. It is self-contained; open it in any browser.
+Interactive maps of where datasets come from and how they are reused, plus a shared knowledge base of dataset provenance, terms and consent. Every page is built from YAML by a small generic renderer and published with GitHub Pages from `docs/`.
 
-## Using it
+## Maps
+
+- [Data-cleaning benchmarks](docs/data-quality.html) (`data/maps/data-quality.yaml`): where the benchmark datasets used in data-cleaning papers (ADR, Raha, Baran, HoloClean, …) come from.
+- [Data-cleaning and fairness benchmarks](docs/fair-data-quality.html) (`data/maps/fair-data-quality.yaml`): the same map extended with demodq (Guha et al., TKDE 2024) and its five datasets.
+- [Face datasets](docs/face-image-datasets.html) (`data/maps/face-image-datasets.yaml`): where each face dataset's images came from, laid out by release year, with related publications that can be shown, greyed out or hidden.
+
+Each map gets its own page: putting them all on one page would be too crowded to use. `docs/index.html` lists them.
+
+## Knowledge base
+
+[`docs/kb.html`](docs/kb.html) has one record per dataset across all maps (`data/kb.yaml`):
+- Filter by topic (Faces, Data quality, Fairness), search every field, and sort the table. `kb.html?topic=faces` opens a filtered view.
+- Click a record to see every field, its parent and derived datasets, and the maps it appears on.
+- `kb.html#<id>` opens a record. Each map box's panel links to its record ("Knowledge base entry"), and each record links back to the box (`<map>.html#<id>`).
+
+The face records were exported from the Face Dataset Provenance Knowledge Base on 2026-11-11. `data/kb.yaml` is now the source of truth.
+
+Records of data-quality datasets hold only `id`, `name` and `topics`. Their facts (original source, path, sizes, where to get it) stay in the map YAML, because some of them differ per map. Adult's path, for example, gains demodq on the fairness map. The knowledge-base page gathers these facts from every map at build time.
+
+Topics:
+- `faces`: every face record.
+- `data-quality`: every dataset on the data-cleaning maps.
+- `fairness`: the five demodq datasets, plus face records whose Role includes "Fairness benchmark".
+
+## Using a map
 
 - **Trace a dataset.** Pick a pill in the "Trace a dataset" card, or a box in the left column of the map. Each left-column box is one original dataset: short name in bold, source underneath. The dataset is highlighted from its origin through every paper that used it, and the side panel shows its source, sizes, path and where to get it. Hovering previews the trace; clicking pins it.
 - **Papers.** Hover over or tap a paper box to see what it took and what it passed on. Click to pin; click the background or press Esc to clear.
@@ -10,48 +34,24 @@
 - Hover over a line to see the citing paper's own description of that dataset.
 - Two tables sit below the map: one by dataset and one by paper or source.
 
-## Provenance traced from the papers
-
-- BART's sources: Tax from Fan et al. (TODS 2008), Customers from Geerts et al. (ICDE 2014), Bus and Hospital from NADEEF.
-- Holistic's CLIENT from Bertossi et al. (DBPL 2005). EMP is synthetic and created in Holistic.
-- Truth finding's Flight data: 38 flight-status websites crawled in Dec 2011.
-- Detecting data errors' five datasets: MIT VPF, Merck, Animal, Rayyan Bib, BlackOak.
-- ADR's seven ML task datasets, one box each:
-  - Through REIN (EDBT 2023): Adult (Kohavi 1996), Airfoil (NASA, UCI) and 3D Printer (Kaggle, Okudan 2019).
-  - Through CleanML (ICDE 2021): Titanic (Kaggle) and Restaurant (Magellan repository, Yelp + Yellowpages).
-  - Bank and Dress: ADR gives no source, and neither benchmark includes them.
-- demodq (TKDE 2024, Guha et al.; extends the ICDE 2023 paper): five datasets, each cited from its public source.
-  - adult: UCI.
-  - folk: US Census ACS data via folktables (Retiring Adult, NeurIPS 2021), California 2018.
-  - credit: Kaggle "Give Me Some Credit", the same data as CleanML's Credit.
-  - german: UCI Statlog.
-  - heart: Kaggle cardiovascular disease dataset.
-  - TKDE builds on the CleanML benchmark code, not on its data.
-- Inferred links (dashed), which the authors do not state:
-  - Raha's IT is DDE's Merck table: same 2,262×61 shape and ~20% errors.
-  - Raha's Rayyan is DDE's 1K-row ground-truth sample of Rayyan Bib.
-  - Raha/Baran's proprietary Address may be DDE's BlackOak: same 94K×12 shape, but 14% vs 34% errors.
-  - REIN → ADR and CleanML → ADR: ADR only says it picked its ML datasets "following previous related works", citing REIN and CleanML among others.
+- Add `#<box id>` to a map's address to open it with that box selected, e.g. `face-image-datasets.html#lfw`.
 
 ## Repository layout
 
-- `data/` holds the content, one YAML file per map:
-  - `data-quality.yaml`: data-cleaning benchmarks (ADR, Raha, Baran, HoloClean, …).
-  - `fair-data-quality.yaml`: extends `data-quality.yaml` with demodq (TKDE 2024) and its five datasets.
-  - `face-image-datasets.yaml`: the face-dataset lineage map from the face-image-datasets repo, laid out by release year, with related publications that can be shown, greyed out or hidden.
-- `template/lineage.html` is the generic renderer: styles, layout and interactions, with no map content.
-- `build.py` validates a YAML file and writes a self-contained page.
-- `data-quality-lineage.html`, `fair-data-quality-lineage.html` and `face-image-datasets-lineage.html` are the built pages. They're committed so they can be opened or published as is. Don't edit them by hand.
+- `data/maps/*.yaml`: one file per map; each becomes `docs/<name>.html`.
+- `data/kb.yaml`: the knowledge base.
+- `template/lineage.html` (map), `template/kb.html` (knowledge base) and `template/index.html` (index) are generic renderers, with no content of their own.
+- `build.py` validates the YAML and writes self-contained pages.
+- `docs/` holds the built site. It's committed so GitHub Pages can serve it as is. Don't edit it by hand.
 
 ## Building
 
 Requires PyYAML (`pip install pyyaml`).
 
 ```
-python build.py data/data-quality.yaml data-quality-lineage.html
-python build.py data/fair-data-quality.yaml fair-data-quality-lineage.html
-python build.py data/face-image-datasets.yaml ../face-image-datasets/face-dataset-lineage.html
-python build.py data/<file>.yaml --check      # validate only
+python build.py                 # whole site: every map, the knowledge base and the index, into docs/
+python build.py --check         # validate everything, write nothing
+python build.py data/maps/face-image-datasets.yaml face.html   # one standalone map page (no site links)
 ```
 
 The build stops with an error for:
@@ -59,13 +59,27 @@ The build stops with an error for:
 - links to unknown boxes or datasets
 - a link whose `to` is a dataset rather than a paper
 - columns out of range
-- unknown kinds, statuses, link types or colours
+- unknown kinds, statuses, link types, colours or topics
+- knowledge-base relations that name unknown records
 
 It warns about:
 - boxes that overlap
 - links that don't run left to right
-- undeclared attributes
-- datasets no link uses
+- undeclared attributes or knowledge-base fields
+
+It also notes map boxes with no knowledge-base record.
+
+## Publishing
+
+On GitHub: Settings → Pages → Build and deployment → Deploy from a branch → `main`, folder `/docs`. Rebuild and commit `docs/` after every data change.
+
+## Knowledge-base schema
+
+- **`topics`**: topic key → `label`. Topics appear as filter chips.
+- **`fields`**: the record fields, in display order. Each has `key` and `label`. It may also have:
+  - `table: true`: shown as a table column whenever a visible record has a value.
+  - `type`: `list`, `ids` (other record ids, shown as links), `url` or `bool`.
+- **`records`**: each has `id`, `name`, `topics` and any declared fields. `title`, `intro` and `footer` set the page text.
 
 ## Extending another map
 
@@ -75,9 +89,9 @@ A file can start with `extends: other.yaml` (a path relative to the file):
 - `kinds`, `statuses`, `link_types`, `layout` and `links_legend` are merged.
 - Other keys, such as `title` or `footer`, replace the base value.
 
-`fair-data-quality.yaml` uses this: it adds 4 datasets, 2 papers and 7 links, patches `adult` and `cleanml`, and replaces the footer.
+`data/maps/fair-data-quality.yaml` uses this: it adds 4 datasets, 2 papers and 7 links, patches `adult` and `cleanml`, and replaces the footer.
 
-## The YAML schema
+## Map YAML schema
 
 **Boxes**
 - **`datasets`** (optional) are the traced left column, one entry per original dataset, in display order; each entry's position is its row. Fields:
@@ -97,6 +111,7 @@ A file can start with `extends: other.yaml` (a path relative to the file):
   - `status`: a key of `statuses`.
   - `attrs`: values for `node_fields`.
   - `url`, or `refs`: a list of `{label, short, url}`. `label` is shown in the panel, `short` in the table.
+  - `kb`: the knowledge-base record for this box, when its id differs (e.g. `kb: cfd`), or `false` for boxes that aren't datasets. By default a box links to the record with its own id.
 
 **Links**
 - **`links`** run from the data source to the box that used it. Fields:
@@ -120,5 +135,30 @@ A file can start with `extends: other.yaml` (a path relative to the file):
 - **`labels: always`** shows line labels without tracing.
 - **`layout`** (colours are CSS variables at the top of the template, with a dark-mode set) may set `node_width`, `node_height`, `top`, `row_height`, `first_x`, `first_gap`, `col_gap`, `min_curve`, `width` and `height` (px), plus `min_width` (wider maps scroll sideways), `year_in_subtitle`, `lane_gap`, `lane_pad_top`, `lane_pad_bottom`, `auto_rows` and `auto_rows_restarts`.
 - **`title`**, **`page_title`**, **`intro`**, **`svg_title`**, **`panel_hint`**, **`footer`** and **`links_legend`** set the page text. `intro`, `panel_hint` and `footer` may contain simple HTML.
+
+## Notes on the data-cleaning maps
+
+### Provenance traced from the papers
+
+- BART's sources: Tax from Fan et al. (TODS 2008), Customers from Geerts et al. (ICDE 2014), Bus and Hospital from NADEEF.
+- Holistic's CLIENT from Bertossi et al. (DBPL 2005). EMP is synthetic and created in Holistic.
+- Truth finding's Flight data: 38 flight-status websites crawled in Dec 2011.
+- Detecting data errors' five datasets: MIT VPF, Merck, Animal, Rayyan Bib, BlackOak.
+- ADR's seven ML task datasets, one box each:
+  - Through REIN (EDBT 2023): Adult (Kohavi 1996), Airfoil (NASA, UCI) and 3D Printer (Kaggle, Okudan 2019).
+  - Through CleanML (ICDE 2021): Titanic (Kaggle) and Restaurant (Magellan repository, Yelp + Yellowpages).
+  - Bank and Dress: ADR gives no source, and neither benchmark includes them.
+- demodq (TKDE 2024, Guha et al.; extends the ICDE 2023 paper): five datasets, each cited from its public source.
+  - adult: UCI.
+  - folk: US Census ACS data via folktables (Retiring Adult, NeurIPS 2021), California 2018.
+  - credit: Kaggle "Give Me Some Credit", the same data as CleanML's Credit.
+  - german: UCI Statlog.
+  - heart: Kaggle cardiovascular disease dataset.
+  - TKDE builds on the CleanML benchmark code, not on its data.
+- Inferred links (dashed), which the authors do not state:
+  - Raha's IT is DDE's Merck table: same 2,262×61 shape and ~20% errors.
+  - Raha's Rayyan is DDE's 1K-row ground-truth sample of Rayyan Bib.
+  - Raha/Baran's proprietary Address may be DDE's BlackOak: same 94K×12 shape, but 14% vs 34% errors.
+  - REIN → ADR and CleanML → ADR: ADR only says it picked its ML datasets "following previous related works", citing REIN and CleanML among others.
 
 Sources: the full text of each paper on the map (including the published TKDE 2024 version of demodq), REIN (arXiv 2302.04702), CleanML (arXiv 1904.09483) and its DatasetDescriptions.pdf, and the BigDaMa/raha GitHub repository, read in November 2026. Download links come from the papers and were not re-checked.
