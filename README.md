@@ -41,18 +41,21 @@ Topics:
 - `data/maps/*.yaml`: one file per map; each becomes `docs/<name>.html`.
 - `data/kb.yaml`: the knowledge base.
 - `template/lineage.html` (map), `template/kb.html` (knowledge base) and `template/index.html` (index) are generic renderers, with no content of their own.
-- `build.py` validates the YAML and writes self-contained pages.
+- `build.py` validates the YAML and writes self-contained pages. `pyproject.toml` declares its one dependency (PyYAML) for uv.
 - `docs/` holds the built site. It's committed so GitHub Pages can serve it as is. Don't edit it by hand.
 
 ## Building
 
-Requires PyYAML (`pip install pyyaml`).
+Requires Python 3.9 or newer and PyYAML. With [uv](https://docs.astral.sh/uv/), the project's `pyproject.toml` sets up both:
 
 ```
-python build.py                 # whole site: every map, the knowledge base and the index, into docs/
-python build.py --check         # validate everything, write nothing
-python build.py data/maps/face-image-datasets.yaml face.html   # one standalone map page (no site links)
+uv sync                            # once: creates .venv/ with PyYAML (and uv.lock)
+uv run build.py                    # whole site: every map, the knowledge base and the index, into docs/
+uv run build.py --check            # validate everything, write nothing
+uv run build.py data/maps/face-image-datasets.yaml face.html   # one standalone map page (no site links)
 ```
+
+Without uv: `pip install pyyaml`, then `python build.py`.
 
 The build stops with an error for:
 - unknown or duplicate ids
@@ -71,7 +74,7 @@ It also notes map boxes with no knowledge-base record.
 
 ## Publishing
 
-On GitHub: Settings → Pages → Build and deployment → Deploy from a branch → `main`, folder `/docs`. Rebuild and commit `docs/` after every data change.
+On GitHub: Settings → Pages → Build and deployment → Deploy from a branch → `main`, folder `/docs`. Rebuild (`uv run build.py`) and commit `docs/` after every data change.
 
 ## Knowledge-base schema
 
