@@ -12,7 +12,7 @@
 page_title: Face Dataset Lineage Map
 title: Shared provenance of face datasets
 intro: >-
-  Each line shows where a dataset's <b>images</b> came from. 21 of the 38 entries take their images from another dataset,
+  Each line shows where a dataset's <b>images</b> came from. 23 of the 40 entries take their images from another dataset,
   and LFW alone has <b>20 known derivatives</b>, shown here as 5 individual datasets and 2 groups. <b>Six datasets have been
   withdrawn (dashed borders), and derivatives of four of those are still distributed.</b> RFW, BFW and LAOFIW take only their
   names from LFW: none of them contains LFW images. Hover or tap a dataset to trace its lineage. Columns give each dataset's
@@ -23,9 +23,10 @@ panel_hint: >-
   Select a dataset to see its terms, its parents and children, and a link to its primary source.<br><br>Datasets shown with
   no lines have no upstream source shared with any other dataset here.
 footer: >-
-  Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the <a href="kb.html">knowledge base</a>. Status of VGGFace is assumed, not verified. Years come from the knowledge base; the few that are approximate
-  or unknown are marked in each dataset's panel.
-node_table_title: Table view (38 entries plus Flickr and 4 publications)
+  Sources: dataset pages and papers, Exposing.ai, and Peña et al. 2023, gathered in the <a href="kb.html">knowledge base</a>.
+  Status of VGGFace is assumed, not verified. Years come from the knowledge base; the few that are approximate or unknown
+  are marked in each dataset's panel.
+node_table_title: Table view (40 entries plus Flickr and 4 publications)
 layout:
   node_width: 168
   node_height: 46
@@ -212,6 +213,25 @@ nodes:
     url: http://megaface.cs.washington.edu/dataset/download_training.html
   lane: flickr
   year: 2016
+- id: openimages
+  name: Open Images
+  subtitle: Flickr URLs · CC BY
+  full: Open Images Dataset (Google), V1 2016 to V7
+  kind: flickr
+  status: Available
+  attrs:
+    terms: >-
+      About 9 million Flickr image URLs with labels and boxes. Google licenses the annotations under CC BY 4.0; the images
+      are only "listed as" CC BY 2.0, and Google makes no warranty and asks users to verify each image's licence themselves.
+    commercial: Allowed (label); per-image licences unverified
+    consent: None
+  refs:
+  - label: Primary source
+    short: Source
+    url: https://storage.googleapis.com/openimages/web/index.html
+  lane: flickr
+  year: 2016
+  year_note: First release (V1) in 2016; later versions to V7.
 - id: fairface
   name: FairFace
   subtitle: Available · CC BY label
@@ -228,6 +248,30 @@ nodes:
     url: https://github.com/joojs/fairface
   lane: flickr
   year: 2021
+- id: miap
+  name: MIAP
+  subtitle: Annotations only · CC BY
+  full: More Inclusive Annotations for People (Google), Open Images Extended
+  kind: flickr
+  status: Available
+  attrs:
+    terms: >-
+      Exhaustive person boxes for 100,000 Open Images photos, each labelled with perceived gender presentation (predominantly
+      feminine, predominantly masculine, unknown) and perceived age range (young, middle, older, unknown). Ships annotations
+      only; images come from Open Images. Annotations CC BY 4.0; images listed as CC BY 2.0, licence per image unverified.
+      The authors note the labels are not gender identity or actual age.
+    commercial: Allowed (label); per-image licences unverified
+    consent: None
+  refs:
+  - label: Paper (arXiv)
+    short: arXiv
+    url: https://arxiv.org/abs/2105.02317
+  - label: Primary source
+    short: Source
+    url: https://storage.googleapis.com/openimages/web/extended.html
+  lane: flickr
+  year: 2021
+  year_note: Released May 2021 (arXiv 2105.02317); paper at AIES 2021.
 - id: dif
   name: Diversity in Faces
   subtitle: ⊘ Withdrawn
@@ -1026,6 +1070,12 @@ links:
 - from: cfd
   to: cfdindia
   how: expansion
+- from: flickr
+  to: openimages
+  how: from
+- from: openimages
+  to: miap
+  how: from
 toggles:
 - label: Related publications
   kinds:

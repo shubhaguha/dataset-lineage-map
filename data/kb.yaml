@@ -160,6 +160,37 @@ records:
   verification: Terms read at source
   sources: MegaFace MF2 licence; Exposing.ai MegaFace
   primary_url: http://megaface.cs.washington.edu/dataset/download_training.html
+- id: openimages
+  name: Open Images
+  topics:
+  - faces
+  full_name: Open Images Dataset (Google), V1 (2016) to V7
+  year: 2016
+  image_origin: Flickr (CC)
+  status: Available
+  role:
+  - Image source pool
+  images: 9000000
+  label_method: >-
+    Image-level labels (machine and human) and human-drawn boxes; person, man, woman, boy and girl classes imply gender and
+    age.
+  dataset_terms: >-
+    Annotations CC BY 4.0 (Google). Images listed as CC BY 2.0; no representation or warranty on each image's licence status.
+  image_rights: >-
+    Flickr photos listed as CC BY 2.0 by their uploaders; per-image author and licence in images.csv; Google asks users to
+    verify each licence.
+  commercial_use: Allowed (label)
+  redistribution: Allowed
+  derivatives_allowed: 'Yes'
+  subject_consent: None
+  derivatives:
+  - miap
+  key_concerns: >-
+    Licence status of each image is unverified by Google, so the CC BY label is only as good as the uploader's choice. About
+    9 million images; size is approximate (V1 lists 9,011,219 training images).
+  verification: Second-hand
+  sources: Open Images website and GitHub READMEs (licence statements); Google Research blog (2016)
+  primary_url: https://storage.googleapis.com/openimages/web/index.html
 - id: fairface
   name: FairFace
   topics:
@@ -194,6 +225,42 @@ records:
   verification: Terms read at source
   sources: Kärkkäinen & Joo WACV 2021; joojs/fairface
   primary_url: https://github.com/joojs/fairface
+- id: miap
+  name: MIAP
+  topics:
+  - faces
+  - fairness
+  full_name: More Inclusive Annotations for People (Open Images Extended)
+  year: 2021
+  image_origin: Derived subset
+  status: Available
+  role:
+  - Fairness benchmark
+  images: 100000
+  demographic_labels:
+  - Age
+  - Gender
+  label_method: >-
+    Annotators drew boxes around every person and labelled perceived gender presentation (predominantly feminine / predominantly
+    masculine / unknown) and perceived age range (young / middle / older / unknown). People labelled young get unknown gender
+    presentation.
+  dataset_terms: >-
+    Annotations CC BY 4.0 (Google). Images are not redistributed: they come from Open Images, listed as CC BY 2.0.
+  image_rights: Open Images (Flickr) photos; per-image licences as listed by Open Images, unverified.
+  commercial_use: Allowed (label)
+  redistribution: Allowed
+  derivatives_allowed: 'Yes'
+  subject_consent: None
+  derived_from:
+  - openimages
+  key_concerns: >-
+    Labels are perceived presentation, not gender identity or actual age, and are meant for aggregate fairness evaluation.
+    Inherits Open Images' unverified per-image licences. No consent from the people pictured.
+  verification: Second-hand
+  sources: >-
+    Schumann, Ricco, Prabhu, Ferrari & Pantofaru (2021), A Step Toward More Inclusive People Annotations for Fairness, AIES
+    2021 (arXiv 2105.02317); Google Research blog (June 2021); Open Images Extended page
+  primary_url: https://storage.googleapis.com/openimages/web/extended.html
 - id: dif
   name: Diversity in Faces (DiF)
   topics:

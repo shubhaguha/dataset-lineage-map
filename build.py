@@ -194,7 +194,7 @@ def optimise_rows(doc, cells, rows, lay):
     for lane in sorted({n["lane"] for n in nodes.values()}, key=str):
         ids = [i for i in nodes if nodes[i]["lane"] == lane]
         free = [i for i in ids if nodes[i].get("lane_row") is None]
-        R = max(len(v) for (lid, _), v in cells.items() if lid == lane) + 2
+        R = max(len(v) for (lid, _), v in cells.items() if lid == lane) + 3
         starts = [dict(rows)]
         for _ in range(int(lay.get("auto_rows_restarts", 24))):  # random row orders within each column
             st = dict(rows)
