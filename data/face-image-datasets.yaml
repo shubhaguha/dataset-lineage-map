@@ -746,10 +746,10 @@ nodes:
     terms: >-
       Same terms of use as the Chicago Face Database: non-commercial scientific research only, no redistribution, no identifying
       or contacting models, at most four images in publications without permission. Download link emailed on request, with
-      CFD and CFD-INDIA. 88 real multiracial individuals with self-reported race and ethnic ancestry. Recruitment materials
-      said the lab was looking for multiracial participants for research purposes (Ma, Kantner & Wittenbrink 2021).
+      CFD and CFD-INDIA. 88 real multiracial individuals with self-reported race and ethnic ancestry. Models signed an in-person
+      release for research use and were paid $20–$100 (Ma, Kantner & Wittenbrink 2021). No withdrawal mechanism is described.
     commercial: Non-commercial only
-    consent: Recruited for research; release terms not verified
+    consent: Signed release, research use
   refs:
   - label: Paper (DOI)
     short: DOI
@@ -771,9 +771,11 @@ nodes:
       Same terms of use as the Chicago Face Database: non-commercial scientific research only, no redistribution, no identifying
       or contacting models, at most four images in publications without permission. Download link emailed on request, with
       CFD and CFD-MR. 142 individuals recruited in Delhi and photographed at the University of Chicago Center in Delhi, in
-      the same grey t-shirt and setup as the CFD (Lakshmi et al. 2021).
+      the same grey t-shirt and setup as the CFD (Lakshmi et al. 2021). Models signed a release for research use (bilingual
+      forms, read aloud where needed; University of Chicago IRB approval) and were paid Rs. 500. No withdrawal mechanism is
+      described.
     commercial: Non-commercial only
-    consent: Volunteers; release terms not verified
+    consent: Signed release, research use
   refs:
   - label: Paper (DOI)
     short: DOI
@@ -787,16 +789,18 @@ nodes:
 - id: feret
   name: FERET
   subtitle: Studio photos · on request
-  full: FERET (Face Recognition Technology) database, DoD Counterdrug Technology Program / NIST
+  full: Facial Recognition Technology (FERET) database; distributed by NIST as Color FERET (Version 2)
   kind: other
   status: On request
   attrs:
     terms: >-
-      Collected December 1993 to August 1996 for the FERET programme to develop and evaluate face recognition algorithms.
-      NIST distributes it (as Color FERET) to face-recognition researchers case by case under a release agreement: no further
-      distribution, publication only of images approved for release, and an acknowledgement in every paper.
-    commercial: Not stated; research access case by case
-    consent: Not verified
+      14,126 images of 1,199 people, photographed on 35mm film for the US DoD Counterdrug Technology Development Program at
+      George Mason University and US Army Research Laboratory facilities, December 1993 to August 1996. Color FERET Release
+      Agreement v1: released case by case to face recognition researchers, NIST download only; no further distribution, publication,
+      copying or dissemination in any form, including within your own organization; at most 15 images, and only in papers
+      on face recognition research; mandatory acknowledgement. No derivatives.
+    commercial: Unclear
+    consent: Not documented (no recruitment, consent or payment details published)
   refs:
   - label: Paper (DOI)
     short: DOI
